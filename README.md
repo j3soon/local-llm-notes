@@ -62,3 +62,43 @@ docker run --rm -it --gpus all --network=host \
 ```
 
 As mentioned in the Unsloth docs, the `Qwen3.5-35B-A3B-GGUF` model will take up to 24GB VRAM without offloading.
+
+## Qwen3-VL
+
+Follow the [Unsloth docs](https://unsloth.ai/docs/models/qwen3-how-to-run-and-fine-tune/qwen3-vl-how-to-run-and-fine-tune):
+
+Instruct:
+
+```sh
+docker run --rm -it --gpus all --network=host \
+  -v ./models:/root/.cache/llama.cpp \
+  ghcr.io/ggml-org/llama.cpp:server-cuda \
+    -hf unsloth/Qwen3-VL-8B-Instruct-GGUF:UD-Q4_K_XL \
+    --n-gpu-layers 99 \
+    --jinja \
+    --top-p 0.8 \
+    --top-k 20 \
+    --temp 0.7 \
+    --min-p 0.0 \
+    --flash-attn on \
+    --presence-penalty 1.5 \
+    --ctx-size 8192
+```
+
+Thinking:
+
+```sh
+docker run --rm -it --gpus all --network=host \
+  -v ./models:/root/.cache/llama.cpp \
+  ghcr.io/ggml-org/llama.cpp:server-cuda \
+    -hf unsloth/Qwen3-VL-8B-Thinking-GGUF:UD-Q4_K_XL \
+    --n-gpu-layers 99 \
+    --jinja \
+    --top-p 0.8 \
+    --top-k 20 \
+    --temp 0.7 \
+    --min-p 0.0 \
+    --flash-attn on \
+    --presence-penalty 1.5 \
+    --ctx-size 8192
+```
