@@ -25,7 +25,19 @@ docker run --rm -it --gpus all --network=host \
     --ctx-size 0 --jinja -ub 2048 -b 2048
 ```
 
+or
+
+```sh
+docker run --rm -it --gpus all --network=host \
+  -v ./models:/root/.cache/llama.cpp \
+  ghcr.io/ggml-org/llama.cpp:server-cuda \
+    -hf ggml-org/gpt-oss-120b-GGUF \
+    --ctx-size 0 --jinja -ub 2048 -b 2048
+```
+
 As mentioned in the discussion, the `gpt‑oss 20B` will take up to 18GB VRAM without offloading, while `gpt‑oss 120B` will take up to 69GB VRAM without offloading.
+
+> Following the [Unsloth docs](https://unsloth.ai/docs/models/gpt-oss-how-to-run-and-fine-tune#run-gpt-oss-120b) will cause the llama.cpp webpage to hang when ran on DGX Spark. I didn't have time to investigate further.
 
 ## Nemotron-3
 
@@ -102,3 +114,21 @@ docker run --rm -it --gpus all --network=host \
     --presence-penalty 1.5 \
     --ctx-size 8192
 ```
+
+Above seems to run well on 24GB VRAM.
+
+## Appendix
+
+### DGX Spark Support
+
+```sh
+git clone https://github.com/ggml-org/llama.cpp.git
+cd llama.cpp
+# There is no official pre-built llama.cpp:server-cuda image arm64 yet, so we need to build it ourselves.
+# Ref: https://forums.developer.nvidia.com/t/building-llama-cpp-container-images-for-spark-gb10/353664/2
+# Ref: https://gist.github.com/stelterlab/33885c600c102792acb1638ca7d2d7e9
+wget -O .devops/cuda.Dockerfile https://gist.githubusercontent.com/stelterlab/33885c600c102792acb1638ca7d2d7e9/raw/6bdfd57e27ceb96f8c7c697b202ad5d5e3c32241/spark.Dockerfile
+docker build -t local/llama.cpp:server-cuda --target server -f .devops/cuda.Dockerfile .
+```
+
+and change the image to `local/llama.cpp:server-cuda` in the above commands.
