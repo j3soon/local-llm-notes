@@ -12,7 +12,9 @@ Follow the [official docker instructions](https://github.com/ggml-org/llama.cpp/
 docker pull ghcr.io/ggml-org/llama.cpp:server-cuda
 ```
 
-## GPT-OSS
+## Models
+
+### GPT-OSS
 
 Follow the official instructions in the [discussion](https://github.com/ggml-org/llama.cpp/discussions/15396), the models will be downloaded to the `./models` directory:
 
@@ -39,7 +41,7 @@ As mentioned in the discussion, the `gpt‑oss 20B` will take up to 18GB VRAM 
 
 > Following the [Unsloth docs](https://unsloth.ai/docs/models/gpt-oss-how-to-run-and-fine-tune#run-gpt-oss-120b) will cause the llama.cpp webpage to hang when ran on DGX Spark. I didn't have time to investigate further.
 
-## Nemotron-3
+### Nemotron-3
 
 Follow the official instructions in the [DGX Spark guide](https://build.nvidia.com/spark/nemotron/instructions) and [Unsloth docs](https://unsloth.ai/docs/models/tutorials/nemotron-3), the models will be downloaded to the `./models` directory:
 
@@ -57,7 +59,7 @@ docker run --rm -it --gpus all --network=host \
 
 As mentioned in the Unsloth docs, the `Nemotron-3-Nano-30B-A3B-GGUF` model will take up to 24GB VRAM without offloading.
 
-## Qwen3.5
+### Qwen3.5
 
 Follow the [Unsloth docs](https://unsloth.ai/docs/models/qwen3.5#qwen3.5-35b-a3b):
 
@@ -75,7 +77,7 @@ docker run --rm -it --gpus all --network=host \
 
 As mentioned in the Unsloth docs, the `Qwen3.5-35B-A3B-GGUF` model will take up to 24GB VRAM without offloading.
 
-## Qwen3-VL
+### Qwen3-VL
 
 Follow the [Unsloth docs](https://unsloth.ai/docs/models/qwen3-how-to-run-and-fine-tune/qwen3-vl-how-to-run-and-fine-tune):
 
@@ -118,6 +120,20 @@ docker run --rm -it --gpus all --network=host \
 Above seems to run well on 24GB VRAM.
 
 ## Appendix
+
+### API
+
+Local API:
+
+```sh
+curl http://127.0.0.1:8080/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "messages": [
+      {"role": "user", "content": "Hello"}
+    ]
+  }'
+```
 
 ### DGX Spark Support
 
