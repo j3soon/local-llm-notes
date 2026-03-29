@@ -121,6 +121,28 @@ Above seems to run well on 24GB VRAM.
 
 ## Appendix
 
+### DGX Spark Support
+
+Build the docker image:
+
+```sh
+git clone https://github.com/ggml-org/llama.cpp.git
+cd llama.cpp
+# There is no official pre-built llama.cpp:server-cuda image arm64 yet, so we need to build it ourselves.
+# Ref: https://forums.developer.nvidia.com/t/building-llama-cpp-container-images-for-spark-gb10/353664/2
+# Ref: https://gist.github.com/stelterlab/33885c600c102792acb1638ca7d2d7e9
+wget -O .devops/cuda.Dockerfile https://gist.githubusercontent.com/stelterlab/33885c600c102792acb1638ca7d2d7e9/raw/6bdfd57e27ceb96f8c7c697b202ad5d5e3c32241/spark.Dockerfile
+docker build -t j3soon/llama.cpp:server-cuda-spark --target server -f .devops/cuda.Dockerfile .
+```
+
+or pull a pre-built image:
+
+```sh
+docker pull j3soon/llama.cpp:server-cuda-spark
+```
+
+and change the image to `j3soon/llama.cpp:server-cuda-spark` in the above commands.
+
 ### API (Insecure)
 
 Local API:
@@ -166,24 +188,6 @@ curl http://$IP:30000/v1/chat/completions \
   }'
 ```
 
-### DGX Spark Support
+### API (with Authentication and HTTPS)
 
-Build the docker image:
-
-```sh
-git clone https://github.com/ggml-org/llama.cpp.git
-cd llama.cpp
-# There is no official pre-built llama.cpp:server-cuda image arm64 yet, so we need to build it ourselves.
-# Ref: https://forums.developer.nvidia.com/t/building-llama-cpp-container-images-for-spark-gb10/353664/2
-# Ref: https://gist.github.com/stelterlab/33885c600c102792acb1638ca7d2d7e9
-wget -O .devops/cuda.Dockerfile https://gist.githubusercontent.com/stelterlab/33885c600c102792acb1638ca7d2d7e9/raw/6bdfd57e27ceb96f8c7c697b202ad5d5e3c32241/spark.Dockerfile
-docker build -t j3soon/llama.cpp:server-cuda-spark --target server -f .devops/cuda.Dockerfile .
-```
-
-or pull a pre-built image:
-
-```sh
-docker pull j3soon/llama.cpp:server-cuda-spark
-```
-
-and change the image to `j3soon/llama.cpp:server-cuda-spark` in the above commands.
+See [`examples/dgx-spark`](./examples/dgx-spark) for the full Docker Compose example with NGINX, Certbot, HTTPS, and API-key enforcement.
