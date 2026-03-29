@@ -32,6 +32,14 @@ curl https://$SERVER_NAME:37000/v1/chat/completions \
   }'
 ```
 
+## Security Scan
+
+```sh
+SERVER_NAME='<value from .env>'
+LLM_API_KEY='<value from .env>'
+./scripts/security_scan.sh "$SERVER_NAME" "$LLM_API_KEY"
+```
+
 `llm` is private on the Compose network. NGINX is the only published port.
 
 Remote clients can access only `/v1/chat/completions`. Full access remains available from localhost.

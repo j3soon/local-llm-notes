@@ -32,6 +32,15 @@ check_no_api_key() {
     pass "missing API key is rejected"
 }
 
+check_wrong_api_key() {
+    code="$(http_status "https://$host:37000/v1/chat/completions" \
+        -H 'Content-Type: application/json' \
+        -H 'Authorization: Bearer sk-wrong-key' \
+        -d '{"messages":[{"role":"user","content":"Hello"}]}')"
+    [ "$code" = "401" ] || fail "wrong API key should return 401, got $code"
+    pass "wrong API key is rejected"
+}
+
 check_http_redirect() {
     code="$(http_status "http://$host/v1/chat/completions")"
     [ "$code" = "301" ] || fail "plain HTTP should redirect, got $code"
@@ -101,6 +110,7 @@ check_sensitive_response_data() {
 }
 
 check_no_api_key
+check_wrong_api_key
 check_http_redirect
 check_tls_protocol
 check_cert_valid
