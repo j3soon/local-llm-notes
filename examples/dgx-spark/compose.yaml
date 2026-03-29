@@ -27,12 +27,33 @@ services:
     env_file:
       - .env
     ports:
+      - "80:80"
       - "37000:37000"
     command: ["/bin/sh", "/opt/nginx/start-nginx.sh"]
     volumes:
-      - ./nginx.conf:/opt/nginx/nginx.conf.template:ro
+      - ./nginx-http01.conf:/opt/nginx/nginx-http01.conf.template:ro
+      - ./nginx-tls.conf:/opt/nginx/nginx-tls.conf.template:ro
       - ./scripts/start-nginx.sh:/opt/nginx/start-nginx.sh:ro
+      - ./state/letsencrypt:/etc/letsencrypt
+      - ./state/www:/var/www/certbot
+
+  certbot:
+    image: certbot/certbot:latest
+    container_name: local-llm-certbot
+    restart: unless-stopped
+    depends_on:
+      - nginx
+    env_file:
+      - .env
+    entrypoint:
+      - /bin/sh
+      - /opt/certbot/certbot-loop.sh
+    volumes:
+      - ./scripts/certbot-loop.sh:/opt/certbot/certbot-loop.sh:ro
+      - ./state/letsencrypt:/etc/letsencrypt
+      - ./state/www:/var/www/certbot
 
 # `llm` stays private on the Compose network.
-# `nginx` is the only public entrypoint.
-# Edit this file directly if you want a different model, host port, or llama.cpp flags.
+# `nginx` is the only public entrypoint for the API.
+# Port 80 is exposed only for the Let's Encrypt HTTP challenge.
+# Edit this file directly if you want a different model, API port, or llama.cpp flags.
