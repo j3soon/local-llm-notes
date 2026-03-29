@@ -1,0 +1,22 @@
+services:
+  llm:
+    image: j3soon/llama.cpp:server-cuda-spark
+    container_name: local-llm-llama-cpp
+    restart: unless-stopped
+    gpus: all
+    command: >-
+      -hf ggml-org/gpt-oss-120b-GGUF
+      --port 37000
+      --ctx-size 0
+      --jinja
+      -ub 2048
+      -b 2048
+    ports:
+      - "127.0.0.1:37000:37000"  # Limit to localhost for security
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:37000"]
+    volumes:
+      - ../../models:/root/.cache/llama.cpp
+
+# Binding to 127.0.0.1 keeps the API off the public network.
+# Edit this file directly if you want to change the model, port, or llama.cpp flags.
