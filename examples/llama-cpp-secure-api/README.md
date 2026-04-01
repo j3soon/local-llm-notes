@@ -26,7 +26,7 @@ Requirements:
 ## Test
 
 ```sh
-LLM_API_KEY='<value from .env>'
+source .env
 curl https://$SERVER_NAME:37000/v1/chat/completions \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer $LLM_API_KEY" \
