@@ -1,4 +1,4 @@
-# llama.cpp Secure API
+# Basic Secure API
 
 Runs `llama.cpp` behind NGINX with a static Bearer token and a Let's Encrypt certificate.
 
@@ -7,7 +7,7 @@ The llama.cpp web UI is also exposed on `http://127.0.0.1:38000` for host-local 
 ## Setup
 
 ```sh
-cd examples/llama-cpp-secure-api
+cd examples/basic-secure-api
 mkdir -p ../../models state/letsencrypt state/www
 ./scripts/gen_env.sh
 cat .env
@@ -47,10 +47,12 @@ curl http://127.0.0.1:38000/
 
 ## Security Scan
 
+Use `./scripts/basic_security_scan.sh` to verify the exposed surface and auth behavior.
+
 ```sh
 SERVER_NAME='<value from .env>'
 LLM_API_KEY='<value from .env>'
-./scripts/security_scan.sh "$SERVER_NAME" "$LLM_API_KEY"
+./scripts/basic_security_scan.sh "$SERVER_NAME" "$LLM_API_KEY"
 ```
 
 `llm` stays private on the Compose network, except for a localhost-only UI binding on `127.0.0.1:38000`. NGINX is the only remotely reachable entrypoint.

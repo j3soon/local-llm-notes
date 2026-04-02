@@ -190,4 +190,4 @@ curl http://$IP:30000/v1/chat/completions \
 
 ### API (with Authentication and HTTPS)
 
-See [`examples/llama-cpp-secure-api`](./examples/llama-cpp-secure-api) for the full Docker Compose example with NGINX, Certbot, HTTPS, and API-key enforcement. It is not DGX Spark specific; set `LLAMA_CPP_IMAGE` for your platform.
+See [`examples/basic-secure-api`](./examples/basic-secure-api) for the full Docker Compose example with NGINX, Certbot, HTTPS, and API-key enforcement. It is not DGX Spark specific; set `LLAMA_CPP_IMAGE` for your platform.
