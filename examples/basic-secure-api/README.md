@@ -8,7 +8,7 @@ The llama.cpp web UI is also exposed on `http://127.0.0.1:38000` for host-local 
 
 ```sh
 cd examples/basic-secure-api
-mkdir -p ../../models state/letsencrypt state/www
+mkdir -p ../../.cache state/letsencrypt state/www
 ./scripts/gen_env.sh
 cat .env
 docker compose up -d

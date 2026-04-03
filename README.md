@@ -16,12 +16,12 @@ docker pull ghcr.io/ggml-org/llama.cpp:server-cuda
 
 ### GPT-OSS
 
-Follow the official instructions in the [discussion](https://github.com/ggml-org/llama.cpp/discussions/15396), the models will be downloaded to the `./models` directory:
+Follow the official instructions in the [discussion](https://github.com/ggml-org/llama.cpp/discussions/15396), the models will be downloaded under `./.cache/huggingface`:
 
 ```sh
 # llama-server -hf ggml-org/gpt-oss-20b-GGUF  --ctx-size 0 --jinja -ub 2048 -b 2048
 docker run --rm -it --gpus all --network=host \
-  -v ./models:/root/.cache/llama.cpp \
+  -v ./.cache:/root/.cache \
   ghcr.io/ggml-org/llama.cpp:server-cuda \
     -hf ggml-org/gpt-oss-20b-GGUF \
     --ctx-size 0 --jinja -ub 2048 -b 2048
@@ -31,7 +31,7 @@ or
 
 ```sh
 docker run --rm -it --gpus all --network=host \
-  -v ./models:/root/.cache/llama.cpp \
+  -v ./.cache:/root/.cache \
   ghcr.io/ggml-org/llama.cpp:server-cuda \
     -hf ggml-org/gpt-oss-120b-GGUF \
     --ctx-size 0 --jinja -ub 2048 -b 2048
@@ -43,11 +43,11 @@ As mentioned in the discussion, the `gpt‑oss 20B` will take up to 18GB VRAM 
 
 ### Nemotron-3
 
-Follow the official instructions in the [DGX Spark guide](https://build.nvidia.com/spark/nemotron/instructions) and [Unsloth docs](https://unsloth.ai/docs/models/tutorials/nemotron-3), the models will be downloaded to the `./models` directory:
+Follow the official instructions in the [DGX Spark guide](https://build.nvidia.com/spark/nemotron/instructions) and [Unsloth docs](https://unsloth.ai/docs/models/tutorials/nemotron-3), the Nemotron-3 Nano model will be downloaded under `./.cache/huggingface`:
 
 ```sh
 docker run --rm -it --gpus all --network=host \
-  -v ./models:/root/.cache/llama.cpp \
+  -v ./.cache:/root/.cache \
   ghcr.io/ggml-org/llama.cpp:server-cuda \
     -hf unsloth/Nemotron-3-Nano-30B-A3B-GGUF:UD-Q4_K_XL \
     --host 0.0.0.0 \
@@ -59,13 +59,28 @@ docker run --rm -it --gpus all --network=host \
 
 As mentioned in the Unsloth docs, the `Nemotron-3-Nano-30B-A3B-GGUF` model will take up to 24GB VRAM without offloading.
 
+Follow the [Unsloth docs](https://unsloth.ai/docs/models/nemotron-3/nemotron-3-super) for the Nemotron 3 Super model:
+
+```sh
+docker run --rm -it --gpus all --network=host \
+  -v ./.cache:/root/.cache \
+  ghcr.io/ggml-org/llama.cpp:server-cuda \
+    -hf unsloth/NVIDIA-Nemotron-3-Super-120B-A12B-GGUF:UD-Q4_K_XL \
+    --host 0.0.0.0 \
+    --port 30000 \
+    --ctx-size 16384 \
+    --temp 1.0 --top-p 1.0
+```
+
+As mentioned in the Unsloth docs, the `NVIDIA-Nemotron-3-Super-120B-A12B-GGUF` model will take up to 64GB-72GB VRAM without offloading.
+
 ### Qwen3.5
 
 Follow the [Unsloth docs](https://unsloth.ai/docs/models/qwen3.5#qwen3.5-35b-a3b):
 
 ```sh
 docker run --rm -it --gpus all --network=host \
-  -v ./models:/root/.cache/llama.cpp \
+  -v ./.cache:/root/.cache \
   ghcr.io/ggml-org/llama.cpp:server-cuda \
     -hf unsloth/Qwen3.5-35B-A3B-GGUF:MXFP4_MOE \
     --ctx-size 16384 \
@@ -85,7 +100,7 @@ Instruct:
 
 ```sh
 docker run --rm -it --gpus all --network=host \
-  -v ./models:/root/.cache/llama.cpp \
+  -v ./.cache:/root/.cache \
   ghcr.io/ggml-org/llama.cpp:server-cuda \
     -hf unsloth/Qwen3-VL-8B-Instruct-GGUF:UD-Q4_K_XL \
     --n-gpu-layers 99 \
@@ -103,7 +118,7 @@ Thinking:
 
 ```sh
 docker run --rm -it --gpus all --network=host \
-  -v ./models:/root/.cache/llama.cpp \
+  -v ./.cache:/root/.cache \
   ghcr.io/ggml-org/llama.cpp:server-cuda \
     -hf unsloth/Qwen3-VL-8B-Thinking-GGUF:UD-Q4_K_XL \
     --n-gpu-layers 99 \
@@ -165,7 +180,7 @@ Take port `37000` and `gpt-oss-120b` on a DGX Spark as an example:
 export API_KEY="sk-$(openssl rand -base64 36 | tr -dc 'a-zA-Z0-9' | head -c 48)"
 echo "API_KEY: $API_KEY"
 docker run --rm -it --gpus all --network=host \
-  -v ./models:/root/.cache/llama.cpp \
+  -v ./.cache:/root/.cache \
   j3soon/llama.cpp:server-cuda-spark \
     -hf ggml-org/gpt-oss-120b-GGUF \
     --ctx-size 0 --jinja -ub 2048 -b 2048 \
