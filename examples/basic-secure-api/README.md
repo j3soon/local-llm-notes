@@ -25,6 +25,10 @@ Requirements:
 - Port `80` and `37000` must be reachable from the public internet for the ACME challenge and API access.
 - `docker compose restart nginx` is needed once after Certbot gets the first certificate so NGINX switches from HTTP bootstrap mode to HTTPS mode.
 
+## Optional OpenCode Setup
+
+Run `./scripts/setup_opencode.sh` to write `~/.config/opencode/opencode.json` so OpenCode can talk to the local `llama.cpp` endpoint.
+
 ## Test
 
 ```sh

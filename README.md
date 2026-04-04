@@ -54,7 +54,8 @@ docker run --rm -it --gpus all --network=host \
     --port 30000 \
     --n-gpu-layers 99 \
     --ctx-size 8192 \
-    --threads 8
+    --threads 8 \
+    --jinja
 ```
 
 As mentioned in the Unsloth docs, the `Nemotron-3-Nano-30B-A3B-GGUF` model will take up to 24GB VRAM without offloading.
@@ -69,7 +70,8 @@ docker run --rm -it --gpus all --network=host \
     --host 0.0.0.0 \
     --port 30000 \
     --ctx-size 16384 \
-    --temp 1.0 --top-p 1.0
+    --temp 1.0 --top-p 1.0 \
+    --jinja
 ```
 
 As mentioned in the Unsloth docs, the `NVIDIA-Nemotron-3-Super-120B-A12B-GGUF` model will take up to 64GB-72GB VRAM without offloading.
@@ -87,7 +89,8 @@ docker run --rm -it --gpus all --network=host \
     --temp 0.6 \
     --top-p 0.95 \
     --top-k 20 \
-    --min-p 0.00
+    --min-p 0.00 \
+    --jinja
 ```
 
 As mentioned in the Unsloth docs, the `Qwen3.5-35B-A3B-GGUF` model will take up to 24GB VRAM without offloading.
