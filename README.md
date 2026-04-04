@@ -194,7 +194,7 @@ curl http://127.0.0.1:8080/v1/chat/completions \
 
 with API key:
 
-Take port `37000` and `gpt-oss-120b` on a DGX Spark as an example:
+Take port `37000` and Nemotron 3 Super on a DGX Spark as an example:
 
 ```sh
 export API_KEY="sk-$(openssl rand -base64 36 | tr -dc 'a-zA-Z0-9' | head -c 48)"
@@ -202,7 +202,7 @@ echo "API_KEY: $API_KEY"
 docker run --rm -it --gpus all --network=host \
   -v ./.cache:/root/.cache \
   j3soon/llama.cpp:server-cuda-spark \
-    -hf ggml-org/gpt-oss-120b-GGUF \
+    -hf unsloth/NVIDIA-Nemotron-3-Super-120B-A12B-GGUF:UD-Q4_K_XL \
     --ctx-size 0 --jinja -ub 2048 -b 2048 \
     --api-key "$API_KEY" \
     --port 30000
