@@ -11,8 +11,9 @@ echo
 
 read -p "llama.cpp server URL (e.g., http://127.0.0.1:8080/v1): " SERVER_URL
 read -p "API key (press Enter for no auth): " API_KEY
-read -p "Model name (e.g., qwen3-coder:a3b): " MODEL_NAME
-read -p "Display name (e.g., Qwen3 Coder 30B): " DISPLAY_NAME
+read -p "Model name (e.g., gpt-oss-120b): " MODEL_NAME
+read -p "Display name [${MODEL_NAME}]: " DISPLAY_NAME
+DISPLAY_NAME="${DISPLAY_NAME:-${MODEL_NAME}}"
 
 PROVIDER_ID="llamacpp"
 
