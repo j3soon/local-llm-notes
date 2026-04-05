@@ -25,6 +25,8 @@ Requirements:
 - Port `80` and `37000` must be reachable from the public internet for the ACME challenge and API access.
 - `docker compose restart nginx` is needed once after Certbot gets the first certificate so NGINX switches from HTTP bootstrap mode to HTTPS mode.
 
+Note: This example assumes 96GB VRAM (e.g., RTX PRO 6000), with context size currently set to 512K, as mentioned in the [Reddit benchmark](https://www.reddit.com/r/LocalLLaMA/comments/1rrw3g4/nemotron3super120ba12b_nvfp4_inference_benchmark/). Also note that Nemotron 3 Super is specialized for long context length due to its architecture [using Mamba-2 layers](https://developer.nvidia.com/blog/introducing-nemotron-3-super-an-open-hybrid-mamba-transformer-moe-for-agentic-reasoning/).
+
 ## Optional OpenCode Setup
 
 Run `./scripts/setup_opencode.sh` to write `~/.config/opencode/opencode.json` so OpenCode can talk to the local `llama.cpp` endpoint.

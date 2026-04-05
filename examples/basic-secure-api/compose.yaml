@@ -7,7 +7,7 @@ services:
     command: >-
       -hf unsloth/NVIDIA-Nemotron-3-Super-120B-A12B-GGUF:UD-Q4_K_XL
       --port 37000
-      --ctx-size 16384
+      --ctx-size 524288
       --temp 1.0 --top-p 1.0
       --jinja
     expose:
