@@ -41,10 +41,10 @@ check_wrong_api_key() {
     pass "wrong API key is rejected"
 }
 
-check_http_redirect() {
+check_http_denied() {
     code="$(http_status "http://$host/v1/chat/completions")"
-    [ "$code" = "301" ] || fail "plain HTTP should redirect, got $code"
-    pass "plain HTTP is not serving the API directly"
+    [ "$code" = "403" ] || fail "plain HTTP should be denied with 403, got $code"
+    pass "plain HTTP is denied"
 }
 
 check_tls_protocol() {
@@ -111,7 +111,7 @@ check_sensitive_response_data() {
 
 check_no_api_key
 check_wrong_api_key
-check_http_redirect
+check_http_denied
 check_tls_protocol
 check_cert_valid
 check_internal_urls_blocked
