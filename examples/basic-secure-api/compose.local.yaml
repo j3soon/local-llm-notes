@@ -1,0 +1,42 @@
+services:
+  llm:
+    image: ${LLAMA_CPP_IMAGE}
+    container_name: local-llm-llama-cpp
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        snapshot="$$(cat /root/.cache/huggingface/hub/models--unsloth--NVIDIA-Nemotron-3-Super-120B-A12B-GGUF/refs/main)"
+        exec /app/llama-server \
+          -m "/root/.cache/huggingface/hub/models--unsloth--NVIDIA-Nemotron-3-Super-120B-A12B-GGUF/snapshots/$$snapshot/UD-Q4_K_XL/NVIDIA-Nemotron-3-Super-120B-A12B-UD-Q4_K_XL-00001-of-00003.gguf" \
+          --port 37000 \
+          --ctx-size 524288 \
+          --temp 1.0 --top-p 1.0 \
+          --jinja
+    expose:
+      - "37000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:37000"]
+    volumes:
+      - ../../.cache:/root/.cache
+    networks:
+      - internal_only
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+networks:
+  internal_only:
+    name: local-llm-internal
+    internal: true
+
+# This stack has no published ports and no outbound internet access.
+# Attach other containers to `local-llm-internal` to reach the model locally.
+# Example for another compose file:
+#   networks:
+#     local-llm-internal:
+#       external: true
