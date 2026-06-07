@@ -36,25 +36,26 @@ Note: This example assumes 96GB VRAM (e.g., RTX PRO 6000), with context size cur
 
 ## Optional OpenCode Setup
 
+The setup scripts require `jq`. They preserve existing OpenCode settings and providers, replace only their respective provider block, and make their model the default.
+
 ### Local Model with Internet Access
 
-Run `./scripts/setup_opencode.sh` to write `~/.config/opencode/opencode.json` so OpenCode can talk to the local `llama.cpp` endpoint.
+Run `./scripts/setup_opencode.sh` to add or update the `llamacpp-remote` provider so OpenCode can talk to the local `llama.cpp` endpoint.
 
 ### Local Model with No Internet Access
 
-For the local/offline Compose stack, run `./scripts/setup_opencode_local.sh` from the OpenCode container or environment that uses `local-llm-internal`. It configures OpenCode to reach `llama.cpp` at `http://local-llm-llama-cpp:37000/v1` without an API key.
+For the local/offline Compose stack, run `./scripts/setup_opencode_local.sh` from the OpenCode container or environment that uses `local-llm-internal`. It adds or updates the `llamacpp-local` provider to reach `llama.cpp` at `http://local-llm-llama-cpp:37000/v1` without an API key.
 
 ### Online Model with Internet Access
 
 To use NVIDIA-hosted Nemotron 3 Ultra instead:
 
 ```sh
-export NVIDIA_API_KEY='<NVIDIA API key>'
 ./scripts/setup_opencode_nvidia.sh
 opencode
 ```
 
-The script writes an OpenCode configuration for `nvidia/nemotron-3-ultra-550b-a55b` using NVIDIA's OpenAI-compatible inference endpoint. It references `NVIDIA_API_KEY` from the environment instead of storing the key in the configuration file.
+The script directs you to the [NVIDIA Nemotron 3 Ultra page](https://build.nvidia.com/nvidia/nemotron-3-ultra-550b-a55b) to get an API key, prompts for it, then adds or updates the `nvidia` provider using NVIDIA's OpenAI-compatible inference endpoint. It writes the API key into the OpenCode configuration.
 
 References: [NVIDIA Nemotron 3 Ultra API](https://build.nvidia.com/nvidia/nemotron-3-ultra-550b-a55b), [OpenCode custom providers](https://opencode.ai/docs/providers/#custom-provider), and [opencode-nemotron-free](https://github.com/j3soon/opencode-nemotron-free).
 
