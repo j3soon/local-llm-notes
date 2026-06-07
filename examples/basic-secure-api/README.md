@@ -36,9 +36,27 @@ Note: This example assumes 96GB VRAM (e.g., RTX PRO 6000), with context size cur
 
 ## Optional OpenCode Setup
 
+### Local Model with Internet Access
+
 Run `./scripts/setup_opencode.sh` to write `~/.config/opencode/opencode.json` so OpenCode can talk to the local `llama.cpp` endpoint.
 
+### Local Model with No Internet Access
+
 For the local/offline Compose stack, run `./scripts/setup_opencode_local.sh` from the OpenCode container or environment that uses `local-llm-internal`. It configures OpenCode to reach `llama.cpp` at `http://local-llm-llama-cpp:37000/v1` without an API key.
+
+### Online Model with Internet Access
+
+To use NVIDIA-hosted Nemotron 3 Ultra instead:
+
+```sh
+export NVIDIA_API_KEY='<NVIDIA API key>'
+./scripts/setup_opencode_nvidia.sh
+opencode
+```
+
+The script writes an OpenCode configuration for `nvidia/nemotron-3-ultra-550b-a55b` using NVIDIA's OpenAI-compatible inference endpoint. It references `NVIDIA_API_KEY` from the environment instead of storing the key in the configuration file.
+
+References: [NVIDIA Nemotron 3 Ultra API](https://build.nvidia.com/nvidia/nemotron-3-ultra-550b-a55b), [OpenCode custom providers](https://opencode.ai/docs/providers/#custom-provider), and [opencode-nemotron-free](https://github.com/j3soon/opencode-nemotron-free).
 
 ## Test
 
