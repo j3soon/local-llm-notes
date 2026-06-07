@@ -6,7 +6,7 @@ CONFIG_DIR="${HOME}/.config/opencode"
 CONFIG_FILE="${CONFIG_DIR}/opencode.json"
 BACKUP_FILE="${CONFIG_DIR}/opencode.json.bak"
 
-echo "=== OpenCode NVIDIA Nemotron 3 Ultra Configuration ==="
+echo "=== OpenCode NVIDIA Nemotron 3 Configuration ==="
 echo
 
 echo "Get an API key from:"
@@ -49,6 +49,9 @@ SETUP_CONFIG_JSON=$(cat <<'EOF'
       "models": {
         "nvidia/nemotron-3-ultra-550b-a55b": {
           "name": "Nemotron 3 Ultra"
+        },
+        "nvidia/nemotron-3-super-120b-a12b": {
+          "name": "Nemotron 3 Super"
         }
       }
     }
@@ -80,4 +83,4 @@ trap - EXIT
 
 echo
 echo "Configuration written to ${CONFIG_FILE}"
-echo "Run 'opencode' to use NVIDIA Nemotron 3 Ultra."
+echo "Run 'opencode' to use NVIDIA Nemotron 3 Ultra by default."

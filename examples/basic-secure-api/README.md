@@ -46,18 +46,18 @@ Run `./scripts/setup_opencode.sh` to add or update the `llamacpp-remote` provide
 
 For the local/offline Compose stack, run `./scripts/setup_opencode_local.sh` from the OpenCode container or environment that uses `local-llm-internal`. It adds or updates the `llamacpp-local` provider to reach `llama.cpp` at `http://local-llm-llama-cpp:37000/v1` without an API key.
 
-### Online Model with Internet Access
+### NVIDIA Nemotron 3
 
-To use NVIDIA-hosted Nemotron 3 Ultra instead:
+To add NVIDIA-hosted Nemotron 3 Ultra and Super:
 
 ```sh
-./scripts/setup_opencode_nvidia.sh
+./scripts/setup_opencode_nvidia_nemotron_3.sh
 opencode
 ```
 
-The script directs you to the [NVIDIA Nemotron 3 Ultra page](https://build.nvidia.com/nvidia/nemotron-3-ultra-550b-a55b) to get an API key, prompts for it, then adds or updates the `nvidia` provider using NVIDIA's OpenAI-compatible inference endpoint. It writes the API key into the OpenCode configuration.
+The script prompts for an NVIDIA API key, then adds or updates the `nvidia` provider using NVIDIA's OpenAI-compatible inference endpoint. Nemotron 3 Ultra is selected as the default model.
 
-References: [NVIDIA Nemotron 3 Ultra API](https://build.nvidia.com/nvidia/nemotron-3-ultra-550b-a55b), [OpenCode custom providers](https://opencode.ai/docs/providers/#custom-provider), and [opencode-nemotron-free](https://github.com/j3soon/opencode-nemotron-free).
+References: [NVIDIA Nemotron 3 Ultra API](https://build.nvidia.com/nvidia/nemotron-3-ultra-550b-a55b), [NVIDIA Nemotron 3 Super API](https://build.nvidia.com/nvidia/nemotron-3-super-120b-a12b), [OpenCode custom providers](https://opencode.ai/docs/providers/#custom-provider), and [opencode-nemotron-free](https://github.com/j3soon/opencode-nemotron-free).
 
 ## Test
 
