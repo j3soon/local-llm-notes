@@ -129,7 +129,23 @@ docker run --rm -it --gpus all --network=host \
     --jinja
 ```
 
-As mentioned in the Unsloth docs, the `Qwen3.5-35B-A3B-GGUF` model will take up to 70GB VRAM without offloading.
+As mentioned in the Unsloth docs, the `Qwen3.5-122B-A10B-GGUF` model will take up to 70GB VRAM without offloading.
+
+For MTP, follow [Unsloth MTP guide](https://huggingface.co/unsloth/Qwen3.5-122B-A10B-MTP-GGUF):
+
+```sh
+docker run --rm -it --gpus all --network=host \
+  -v ./.cache:/root/.cache \
+  ghcr.io/ggml-org/llama.cpp:server-cuda \
+    -hf unsloth/Qwen3.5-122B-A10B-MTP-GGUF:UD-Q4_K_XL \
+    --ctx-size 16384 \
+    --temp 0.6 \
+    --top-p 0.95 \
+    --top-k 20 \
+    --min-p 0.00 \
+    --spec-type draft-mtp --spec-draft-n-max 6 \
+    --jinja
+```
 
 ### Qwen3-VL
 
