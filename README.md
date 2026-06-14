@@ -121,7 +121,6 @@ docker run --rm -it --gpus all --network=host \
   -v ./.cache:/root/.cache \
   ghcr.io/ggml-org/llama.cpp:server-cuda \
     -hf unsloth/Qwen3.5-122B-A10B-GGUF:UD-Q4_K_XL \
-    --ctx-size 16384 \
     --temp 0.6 \
     --top-p 0.95 \
     --top-k 20 \
@@ -138,7 +137,6 @@ docker run --rm -it --gpus all --network=host \
   -v ./.cache:/root/.cache \
   ghcr.io/ggml-org/llama.cpp:server-cuda \
     -hf unsloth/Qwen3.5-122B-A10B-MTP-GGUF:UD-Q4_K_XL \
-    --ctx-size 16384 \
     --temp 0.6 \
     --top-p 0.95 \
     --top-k 20 \
