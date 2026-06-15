@@ -6,7 +6,7 @@ CONFIG_DIR="${HOME}/.config/opencode"
 CONFIG_FILE="${CONFIG_DIR}/opencode.json"
 BACKUP_FILE="${CONFIG_DIR}/opencode.json.bak"
 PROVIDER_ID="llamacpp-local"
-MODEL_NAME="Nemotron 3 Super"
+MODEL_NAME="unsloth/Qwen3.5-122B-A10B-MTP-GGUF:UD-Q4_K_XL"
 
 echo "=== OpenCode llama.cpp Local/Offline Configuration ==="
 echo
@@ -29,7 +29,7 @@ trap 'rm -f "${TEMP_FILE}"' EXIT
 SETUP_CONFIG_JSON=$(cat <<'EOF'
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "llamacpp-local/Nemotron 3 Super",
+  "model": "llamacpp-local/unsloth/Qwen3.5-122B-A10B-MTP-GGUF:UD-Q4_K_XL",
   "provider": {
     "llamacpp-local": {
       "npm": "@ai-sdk/openai-compatible",
@@ -41,8 +41,8 @@ SETUP_CONFIG_JSON=$(cat <<'EOF'
         }
       },
       "models": {
-        "Nemotron 3 Super": {
-          "name": "Nemotron 3 Super"
+        "unsloth/Qwen3.5-122B-A10B-MTP-GGUF:UD-Q4_K_XL": {
+          "name": "Qwen3.5 122B A10B MTP UD-Q4_K_XL"
         }
       }
     }

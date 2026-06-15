@@ -6,12 +6,16 @@ services:
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
-        snapshot="$$(cat /root/.cache/huggingface/hub/models--unsloth--NVIDIA-Nemotron-3-Super-120B-A12B-GGUF/refs/main)"
+        snapshot="$$(cat /root/.cache/huggingface/hub/models--unsloth--Qwen3.5-122B-A10B-MTP-GGUF/refs/main)"
         exec /app/llama-server \
-          -m "/root/.cache/huggingface/hub/models--unsloth--NVIDIA-Nemotron-3-Super-120B-A12B-GGUF/snapshots/$$snapshot/UD-Q4_K_XL/NVIDIA-Nemotron-3-Super-120B-A12B-UD-Q4_K_XL-00001-of-00003.gguf" \
+          -m "/root/.cache/huggingface/hub/models--unsloth--Qwen3.5-122B-A10B-MTP-GGUF/snapshots/$$snapshot/UD-Q4_K_XL/Qwen3.5-122B-A10B-UD-Q4_K_XL-00001-of-00003.gguf" \
           --port 37000 \
-          --ctx-size 524288 \
-          --temp 1.0 --top-p 1.0 \
+          --temp 0.6 \
+          --top-p 0.95 \
+          --top-k 20 \
+          --min-p 0.00 \
+          --spec-type draft-mtp \
+          --spec-draft-n-max 6 \
           --jinja
     expose:
       - "37000"

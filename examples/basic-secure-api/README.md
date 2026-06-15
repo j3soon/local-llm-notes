@@ -32,7 +32,7 @@ Requirements:
 - `docker compose restart nginx` is needed once after Certbot gets the first certificate so NGINX switches from HTTP bootstrap mode to HTTPS mode.
 - `compose.local.yaml` does not publish any ports and puts `llm` on an internal Docker network only.
 
-Note: This example assumes 96GB VRAM (e.g., RTX PRO 6000), with context size currently set to 512K, as mentioned in the [Reddit benchmark](https://www.reddit.com/r/LocalLLaMA/comments/1rrw3g4/nemotron3super120ba12b_nvfp4_inference_benchmark/). Also note that Nemotron 3 Super is specialized for long context length due to its architecture [using Mamba-2 layers](https://developer.nvidia.com/blog/introducing-nemotron-3-super-an-open-hybrid-mamba-transformer-moe-for-agentic-reasoning/).
+This example runs `unsloth/Qwen3.5-122B-A10B-MTP-GGUF:UD-Q4_K_XL` with MTP speculative decoding, following the [repo README](../../README.md#qwen35). It requires about 70GB of VRAM without offloading. Run the internet-enabled stack first to download the model into `../../.cache` before starting `compose.local.yaml`.
 
 ## Optional OpenCode Setup
 

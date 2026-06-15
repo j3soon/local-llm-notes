@@ -11,7 +11,7 @@ echo
 
 read -p "llama.cpp server URL (e.g., http://127.0.0.1:8080/v1): " SERVER_URL
 read -p "API key (press Enter for no auth): " API_KEY
-read -p "Model name (e.g., Nemotron 3 Super): " MODEL_NAME
+read -p "Model name (e.g., unsloth/Qwen3.5-122B-A10B-MTP-GGUF:UD-Q4_K_XL): " MODEL_NAME
 read -p "Display name [${MODEL_NAME}]: " DISPLAY_NAME
 DISPLAY_NAME="${DISPLAY_NAME:-${MODEL_NAME}}"
 
