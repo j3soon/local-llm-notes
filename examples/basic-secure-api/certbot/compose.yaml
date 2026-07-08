@@ -20,7 +20,7 @@ services:
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:37000"]
     volumes:
-      - ../../.cache:/root/.cache
+      - ../../../.cache:/root/.cache
     deploy:
       resources:
         reservations:
