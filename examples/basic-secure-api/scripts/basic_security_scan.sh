@@ -3,10 +3,23 @@ set -eu
 
 host="${1:-}"
 api_key="${2:-}"
+port="${3:-}"
 
 if [ -z "$host" ] || [ -z "$api_key" ]; then
-    echo "usage: $0 <server_name> <api_key>" >&2
+    echo "usage: $0 <server_name> <api_key> [port]" >&2
+    echo "  <port>: NGINX's directly-terminated TLS port (e.g. 37000), for the certbot setup." >&2
+    echo "  Omit it for the Cloudflare Tunnel setup, which serves on the standard HTTPS port." >&2
+    echo "  TLS/cert checks then target Cloudflare's edge instead of our own origin," >&2
+    echo "  which verifies the user's Cloudflare-side TLS configuration instead." >&2
     exit 1
+fi
+
+if [ -n "$port" ]; then
+    origin="$host:$port"
+    tls_target="$host:$port"
+else
+    origin="$host"
+    tls_target="$host:443"
 fi
 
 pass() {
@@ -25,7 +38,7 @@ http_status() {
 }
 
 check_no_api_key() {
-    code="$(http_status "https://$host:37000/v1/chat/completions" \
+    code="$(http_status "https://$origin/v1/chat/completions" \
         -H 'Content-Type: application/json' \
         -d '{"messages":[{"role":"user","content":"Hello"}]}')"
     [ "$code" = "401" ] || fail "missing API key should return 401, got $code"
@@ -33,7 +46,7 @@ check_no_api_key() {
 }
 
 check_wrong_api_key() {
-    code="$(http_status "https://$host:37000/v1/chat/completions" \
+    code="$(http_status "https://$origin/v1/chat/completions" \
         -H 'Content-Type: application/json' \
         -H 'Authorization: Bearer sk-wrong-key' \
         -d '{"messages":[{"role":"user","content":"Hello"}]}')"
@@ -43,39 +56,44 @@ check_wrong_api_key() {
 
 check_http_denied() {
     code="$(http_status "http://$host/v1/chat/completions")"
-    [ "$code" = "403" ] || fail "plain HTTP should be denied with 403, got $code"
-    pass "plain HTTP is denied"
+    case "$code" in
+        403) pass "plain HTTP is denied (403)" ;;
+        3??) pass "plain HTTP is redirected to HTTPS (got $code)" ;;
+        *) fail "plain HTTP should be denied or redirected, got $code" ;;
+    esac
 }
 
 check_tls_protocol() {
-    if echo | openssl s_client -connect "$host:37000" -tls1 >/dev/null 2>&1; then
+    if echo | openssl s_client -connect "$tls_target" -tls1 >/dev/null 2>&1; then
         fail "TLS 1.0 is enabled"
     fi
-    if echo | openssl s_client -connect "$host:37000" -tls1_1 >/dev/null 2>&1; then
+    if echo | openssl s_client -connect "$tls_target" -tls1_1 >/dev/null 2>&1; then
         fail "TLS 1.1 is enabled"
     fi
     pass "TLS 1.0/1.1 are disabled"
 }
 
 check_cert_valid() {
-    cert_text="$(echo | openssl s_client -connect "$host:37000" -servername "$host" 2>/dev/null | openssl x509 -noout -subject -issuer -dates 2>/dev/null)" || \
+    if ! echo | openssl s_client -connect "$tls_target" -servername "$host" \
+        -verify_hostname "$host" -verify_return_error >/dev/null 2>&1; then
+        fail "certificate is not signed by a trusted CA for this hostname"
+    fi
+
+    cert_text="$(echo | openssl s_client -connect "$tls_target" -servername "$host" 2>/dev/null | openssl x509 -noout -dates 2>/dev/null)" || \
         fail "unable to read certificate"
     echo "$cert_text" | grep -q "notAfter=" || fail "certificate missing expiry"
     echo "$cert_text" | grep -q "notBefore=" || fail "certificate missing validity start"
-    if ! echo | openssl s_client -connect "$host:37000" -servername "$host" -verify_hostname "$host" >/dev/null 2>&1; then
-        fail "certificate hostname validation failed"
-    fi
-    pass "certificate is present and valid for hostname"
+    pass "certificate is signed, trusted, and valid for hostname"
 }
 
 check_internal_urls_blocked() {
-    code_root="$(http_status "https://$host:37000/")"
+    code_root="$(http_status "https://$origin/")"
     [ "$code_root" = "403" ] || fail "remote / should be blocked with 403, got $code_root"
 
-    code_models="$(http_status "https://$host:37000/v1/models")"
+    code_models="$(http_status "https://$origin/v1/models")"
     [ "$code_models" = "403" ] || fail "remote /v1/models should be blocked with 403, got $code_models"
 
-    code_api="$(http_status "https://$host:37000/v1/chat/completions" \
+    code_api="$(http_status "https://$origin/v1/chat/completions" \
         -H 'Content-Type: application/json' \
         -H "Authorization: Bearer $api_key" \
         -d '{"messages":[{"role":"user","content":"Hello"}]}')"
@@ -90,7 +108,7 @@ check_sensitive_response_data() {
     trap 'rm -f "$headers_file" "$body_file"' EXIT INT TERM
 
     curl -sS -D "$headers_file" -o "$body_file" \
-        "https://$host:37000/v1/chat/completions" \
+        "https://$origin/v1/chat/completions" \
         -H 'Content-Type: application/json' \
         -d '{"messages":[{"role":"user","content":"Hello"}]}' >/dev/null
 

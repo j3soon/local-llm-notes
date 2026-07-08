@@ -1,0 +1,54 @@
+services:
+  llm:
+    image: ${LLAMA_CPP_IMAGE}
+    container_name: local-llm-llama-cpp
+    restart: unless-stopped
+    command: >-
+      -hf unsloth/Qwen3.5-122B-A10B-MTP-GGUF:UD-Q4_K_XL
+      --port 37000
+      --temp 0.6
+      --top-p 0.95
+      --top-k 20
+      --min-p 0.00
+      --spec-type draft-mtp
+      --spec-draft-n-max 6
+      --jinja
+    expose:
+      - "37000"
+    ports:
+      - "127.0.0.1:38000:37000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:37000"]
+    volumes:
+      - ../../../.cache:/root/.cache
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  nginx:
+    image: nginx:1.29
+    container_name: local-llm-nginx
+    restart: unless-stopped
+    depends_on:
+      - llm
+    env_file:
+      - .env
+    command: ["/bin/sh", "/opt/nginx/start-nginx.sh"]
+    volumes:
+      - ./nginx.conf:/opt/nginx/nginx.conf.template:ro
+      - ./scripts/start-nginx.sh:/opt/nginx/start-nginx.sh:ro
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    depends_on:
+      - nginx
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:?Set CLOUDFLARE_TUNNEL_TOKEN in .env}
+
+# `llm` stays private on the Compose network.
+# `nginx` is the only public entrypoint for the API, reached remotely via Cloudflare Tunnel.
+# Edit this file directly if you want a different model, API port, or llama.cpp flags.

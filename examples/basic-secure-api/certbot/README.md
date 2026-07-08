@@ -1,4 +1,4 @@
-# Basic Secure API
+# Certbot/NGINX Deployment (Legacy)
 
 Runs `llama.cpp` behind NGINX with a static Bearer token and a Let's Encrypt certificate.
 
@@ -7,8 +7,8 @@ The llama.cpp web UI is also exposed on `http://127.0.0.1:38000` for host-local 
 ## Setup
 
 ```sh
-cd examples/basic-secure-api
-mkdir -p ../../.cache state/letsencrypt state/www
+cd certbot
+mkdir -p ../../../.cache state/letsencrypt state/www
 ./scripts/gen_env.sh
 cat .env
 docker compose up -d
@@ -32,7 +32,7 @@ Requirements:
 - `docker compose restart nginx` is needed once after Certbot gets the first certificate so NGINX switches from HTTP bootstrap mode to HTTPS mode.
 - `compose.local.yaml` does not publish any ports and puts `llm` on an internal Docker network only.
 
-This example runs `unsloth/Qwen3.5-122B-A10B-MTP-GGUF:UD-Q4_K_XL` with MTP speculative decoding, following the [repo README](../../README.md#qwen35). It requires about 70GB of VRAM without offloading. Run the internet-enabled stack first to download the model into `../../.cache` before starting `compose.local.yaml`.
+This example runs `unsloth/Qwen3.5-122B-A10B-MTP-GGUF:UD-Q4_K_XL` with MTP speculative decoding, following the [repo README](../../../README.md#qwen35). It requires about 70GB of VRAM without offloading. Run the internet-enabled stack first to download the model into `../../../.cache` before starting `compose.local.yaml`.
 
 ## Optional OpenCode Setup
 
@@ -40,18 +40,18 @@ The setup scripts require `jq`. They preserve existing OpenCode settings and pro
 
 ### Local Model with Internet Access
 
-Run `./scripts/setup_opencode.sh` to add or update the `llamacpp-remote` provider so OpenCode can talk to the local `llama.cpp` endpoint.
+Run `../scripts/setup_opencode.sh` to add or update the `llamacpp-remote` provider so OpenCode can talk to the local `llama.cpp` endpoint.
 
 ### Local Model with No Internet Access
 
-For the local/offline Compose stack, run `./scripts/setup_opencode_local.sh` from the OpenCode container or environment that uses `local-llm-internal`. It adds or updates the `llamacpp-local` provider to reach `llama.cpp` at `http://local-llm-llama-cpp:37000/v1` without an API key.
+For the local/offline Compose stack, run `../scripts/setup_opencode_local.sh` from the OpenCode container or environment that uses `local-llm-internal`. It adds or updates the `llamacpp-local` provider to reach `llama.cpp` at `http://local-llm-llama-cpp:37000/v1` without an API key.
 
 ### NVIDIA Nemotron 3
 
 To add NVIDIA-hosted Nemotron 3 Ultra and Super:
 
 ```sh
-./scripts/setup_opencode_nvidia_nemotron_3.sh
+../scripts/setup_opencode_nvidia_nemotron_3.sh
 opencode
 ```
 
@@ -100,17 +100,16 @@ networks:
 
 ## Security Scan
 
-Use `./scripts/basic_security_scan.sh` to verify the exposed surface and auth behavior.
+Use `../scripts/basic_security_scan.sh` to verify the exposed surface and auth behavior.
 
 ```sh
 SERVER_NAME='<value from .env>'
 LLM_API_KEY='<value from .env>'
-./scripts/basic_security_scan.sh "$SERVER_NAME" "$LLM_API_KEY"
+../scripts/basic_security_scan.sh "$SERVER_NAME" "$LLM_API_KEY" 37000
 ```
 
 `llm` stays private on the Compose network, except for a localhost-only UI binding on `127.0.0.1:38000`. NGINX is the only remotely reachable entrypoint.
 
-Remote clients can access only `/v1/chat/completions`. Full access remains available from localhost.
+Remote clients can access only `/v1/chat/completions`. Full, unauthenticated access remains available from localhost via `127.0.0.1:38000` (directly to `llm`, bypassing NGINX).
 
-Edit [`compose.yaml`](./compose.yaml) if you want a different model or API port. Edit [`nginx-http01.conf`](./nginx-http01.conf) and [`nginx-tls.conf`](./nginx-tls.conf) if you want to change the proxy behavior.
-Edit [`compose.local.yaml`](./compose.local.yaml) if you want a network-isolated local deployment without any published ports.
+Edit [`compose.yaml`](./compose.yaml) if you want a different model or API port. Edit [`nginx-http01.conf`](./nginx-http01.conf) and [`nginx-tls.conf`](./nginx-tls.conf) if you want to change the proxy behavior. Edit [`compose.local.yaml`](./compose.local.yaml) if you want a network-isolated local deployment without any published ports.
