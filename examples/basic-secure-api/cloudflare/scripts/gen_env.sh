@@ -21,6 +21,23 @@ prompt() {
     printf '%s\n' "$value"
 }
 
+prompt_required() {
+    prompt_text="$1"
+
+    while :; do
+        printf "%s (required): " "$prompt_text" >&2
+        if ! IFS= read -r value; then
+            echo "$prompt_text is required" >&2
+            exit 1
+        fi
+        if [ -n "$value" ]; then
+            printf '%s\n' "$value"
+            return
+        fi
+        echo "$prompt_text cannot be empty" >&2
+    done
+}
+
 prompt_llama_cpp_image() {
     default_value="$1"
 
@@ -48,7 +65,7 @@ EOF
 }
 
 server_name="$(prompt "SERVER_NAME" "llm.example.com")"
-cloudflare_tunnel_token="$(prompt "CLOUDFLARE_TUNNEL_TOKEN" "your_tunnel_token_here")"
+cloudflare_tunnel_token="$(prompt_required "CLOUDFLARE_TUNNEL_TOKEN")"
 
 generated_api_key="sk-$(openssl rand -base64 36 | tr -dc 'A-Za-z0-9' | head -c 48)"
 api_key="$(prompt "LLM_API_KEY" "$generated_api_key")"

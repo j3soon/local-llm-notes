@@ -16,6 +16,11 @@ services:
     expose:
       - "37000"
     ports:
+      # Host-local llama.cpp web UI (loopback only). This bypasses NGINX auth
+      # and exposes the FULL, UNAUTHENTICATED API to anything that can reach
+      # 127.0.0.1 on this host, including other local users and SSH port
+      # forwards. Remove this mapping to keep the model reachable only through
+      # the authenticated NGINX entrypoint.
       - "127.0.0.1:38000:37000"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:37000"]

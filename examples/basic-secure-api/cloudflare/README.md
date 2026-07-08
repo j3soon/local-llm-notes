@@ -8,7 +8,7 @@ This directory contains the recommended deployment using Cloudflare Tunnel for s
 2. Add a public hostname for your desired domain (e.g., `llm.example.com`).
 3. Point the tunnel service to `http://nginx:80` (the `nginx` Compose service, reachable from the `cloudflared` container over the Compose network, not `localhost`, since they run in separate containers).
 4. Copy `.env.example` to `.env` and set `CLOUDFLARE_TUNNEL_TOKEN`.
-5. Enable [Always Use HTTPS](https://developers.cloudflare.com/ssl/edge-certificates/additional-options/add-an-always-use-https-rule/) in Cloudflare dashboard.
+5. Enable [Always Use HTTPS](https://developers.cloudflare.com/ssl/edge-certificates/additional-options/always-use-https/) in Cloudflare dashboard.
 
 ## Setup
 
@@ -101,4 +101,4 @@ LLM_API_KEY='<value from .env>'
 
 `llm` stays private on the Compose network, except for a localhost-only UI binding on `127.0.0.1:38000`. Cloudflare Tunnel, forwarding into `nginx`, is the only remotely reachable entrypoint.
 
-Remote clients can access only `/v1/chat/completions`, gated by `Authorization: Bearer $LLM_API_KEY` (checked by `nginx`, same as the certbot setup). Full, unauthenticated access remains available from localhost via `127.0.0.1:38000` (directly to `llm`, bypassing `nginx`).
+Remote clients can access only `/v1/chat/completions`, gated by `Authorization: Bearer $LLM_API_KEY` (checked by `nginx`, same as the certbot setup); plain HTTP is redirected to HTTPS by Cloudflare's "Always Use HTTPS" setting. Full, unauthenticated access remains available from localhost via `127.0.0.1:38000` (directly to `llm`, bypassing `nginx`). Remove the `127.0.0.1:38000:37000` mapping in [`compose.yaml`](./compose.yaml) to disable it.

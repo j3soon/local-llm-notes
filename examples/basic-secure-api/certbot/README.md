@@ -110,6 +110,6 @@ LLM_API_KEY='<value from .env>'
 
 `llm` stays private on the Compose network, except for a localhost-only UI binding on `127.0.0.1:38000`. NGINX is the only remotely reachable entrypoint.
 
-Remote clients can access only `/v1/chat/completions`. Full, unauthenticated access remains available from localhost via `127.0.0.1:38000` (directly to `llm`, bypassing NGINX).
+Remote clients can access only `/v1/chat/completions`, gated by `Authorization: Bearer $LLM_API_KEY`; plain HTTP on port 80 is redirected to HTTPS. Full, unauthenticated access remains available from localhost via `127.0.0.1:38000` (directly to `llm`, bypassing NGINX). Remove the `127.0.0.1:38000:37000` mapping in [`compose.yaml`](./compose.yaml) to disable it.
 
 Edit [`compose.yaml`](./compose.yaml) if you want a different model or API port. Edit [`nginx-http01.conf`](./nginx-http01.conf) and [`nginx-tls.conf`](./nginx-tls.conf) if you want to change the proxy behavior. Edit [`compose.local.yaml`](./compose.local.yaml) if you want a network-isolated local deployment without any published ports.

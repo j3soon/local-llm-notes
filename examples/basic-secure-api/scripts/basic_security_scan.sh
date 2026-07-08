@@ -59,6 +59,13 @@ check_http_denied() {
     case "$code" in
         403) pass "plain HTTP is denied (403)" ;;
         3??) pass "plain HTTP is redirected to HTTPS (got $code)" ;;
+        401)
+            if [ -z "$port" ]; then
+                fail "plain HTTP reached the origin (got 401 instead of a redirect); enable Cloudflare's \"Always Use HTTPS\" setting (SSL/TLS -> Edge Certificates)"
+            else
+                fail "plain HTTP should be denied or redirected, got $code"
+            fi
+            ;;
         *) fail "plain HTTP should be denied or redirected, got $code" ;;
     esac
 }
