@@ -1,7 +1,8 @@
+name: local-llm
+
 services:
-  llm:
+  llama-cpp:
     image: ${LLAMA_CPP_IMAGE}
-    container_name: local-llm-llama-cpp
     restart: unless-stopped
     entrypoint: ["/bin/sh", "-c"]
     command:

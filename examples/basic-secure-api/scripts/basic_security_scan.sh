@@ -124,7 +124,7 @@ check_sensitive_response_data() {
         fail "response exposes nginx version: $server_line"
     fi
 
-    sensitive_line="$(grep -Ein '(llm:37000|/etc/letsencrypt|/var/www/certbot|local-llm-|docker|nginx/[0-9])' "$headers_file" "$body_file" | head -n 1 || true)"
+    sensitive_line="$(grep -Ein '(llama-cpp:37000|/etc/letsencrypt|/var/www/certbot|local-llm-|docker|nginx/[0-9])' "$headers_file" "$body_file" | head -n 1 || true)"
     if [ -n "$sensitive_line" ]; then
         fail "response exposes internal detail: $sensitive_line"
     fi

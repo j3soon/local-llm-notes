@@ -74,7 +74,7 @@ Run `../scripts/setup_opencode.sh` to add or update the `llamacpp-remote` provid
 
 ### Local Model with No Internet Access
 
-For the local/offline Compose stack, run `../scripts/setup_opencode_local.sh` from the OpenCode container or environment that uses `local-llm-internal`. It adds or updates the `llamacpp-local` provider to reach `llama.cpp` at `http://local-llm-llama-cpp:37000/v1` without an API key.
+For the local/offline Compose stack, run `../scripts/setup_opencode_local.sh` from the OpenCode container or environment that uses `local-llm-internal`. It adds or updates the `llamacpp-local` provider to reach `llama.cpp` at `http://llama-cpp:37000/v1` without an API key.
 
 ### NVIDIA Nemotron 3
 
@@ -99,6 +99,6 @@ LLM_API_KEY='<value from .env>'
 ../scripts/basic_security_scan.sh "$SERVER_NAME" "$LLM_API_KEY"
 ```
 
-`llm` stays private on the Compose network, except for a localhost-only UI binding on `127.0.0.1:38000`. Cloudflare Tunnel, forwarding into `nginx`, is the only remotely reachable entrypoint.
+`llama-cpp` stays private on the Compose network, except for a localhost-only UI binding on `127.0.0.1:38000`. Cloudflare Tunnel, forwarding into `nginx`, is the only remotely reachable entrypoint.
 
-Remote clients can access only `/v1/chat/completions`, gated by `Authorization: Bearer $LLM_API_KEY` (checked by `nginx`, same as the certbot setup); plain HTTP is redirected to HTTPS by Cloudflare's "Always Use HTTPS" setting. Full, unauthenticated access remains available from localhost via `127.0.0.1:38000` (directly to `llm`, bypassing `nginx`). Remove the `127.0.0.1:38000:37000` mapping in [`compose.yaml`](./compose.yaml) to disable it.
+Remote clients can access only `/v1/chat/completions`, gated by `Authorization: Bearer $LLM_API_KEY` (checked by `nginx`, same as the certbot setup); plain HTTP is redirected to HTTPS by Cloudflare's "Always Use HTTPS" setting. Full, unauthenticated access remains available from localhost via `127.0.0.1:38000` (directly to `llama-cpp`, bypassing `nginx`). Remove the `127.0.0.1:38000:37000` mapping in [`compose.yaml`](./compose.yaml) to disable it.

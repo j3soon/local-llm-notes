@@ -30,7 +30,7 @@ Requirements:
 - `SERVER_NAME` in `.env` must resolve to this host.
 - Port `80` and `37000` must be reachable from the public internet for the ACME challenge and API access.
 - `docker compose restart nginx` is needed once after Certbot gets the first certificate so NGINX switches from HTTP bootstrap mode to HTTPS mode.
-- `compose.local.yaml` does not publish any ports and puts `llm` on an internal Docker network only.
+- `compose.local.yaml` does not publish any ports and puts `llama-cpp` on an internal Docker network only.
 
 This example runs `unsloth/Qwen3.5-122B-A10B-MTP-GGUF:UD-Q4_K_XL` with MTP speculative decoding, following the [repo README](../../../README.md#qwen35). It requires about 70GB of VRAM without offloading. Run the internet-enabled stack first to download the model into `../../../.cache` before starting `compose.local.yaml`.
 
@@ -44,7 +44,7 @@ Run `../scripts/setup_opencode.sh` to add or update the `llamacpp-remote` provid
 
 ### Local Model with No Internet Access
 
-For the local/offline Compose stack, run `../scripts/setup_opencode_local.sh` from the OpenCode container or environment that uses `local-llm-internal`. It adds or updates the `llamacpp-local` provider to reach `llama.cpp` at `http://local-llm-llama-cpp:37000/v1` without an API key.
+For the local/offline Compose stack, run `../scripts/setup_opencode_local.sh` from the OpenCode container or environment that uses `local-llm-internal`. It adds or updates the `llamacpp-local` provider to reach `llama.cpp` at `http://llama-cpp:37000/v1` without an API key.
 
 ### NVIDIA Nemotron 3
 
@@ -108,8 +108,8 @@ LLM_API_KEY='<value from .env>'
 ../scripts/basic_security_scan.sh "$SERVER_NAME" "$LLM_API_KEY" 37000
 ```
 
-`llm` stays private on the Compose network, except for a localhost-only UI binding on `127.0.0.1:38000`. NGINX is the only remotely reachable entrypoint.
+`llama-cpp` stays private on the Compose network, except for a localhost-only UI binding on `127.0.0.1:38000`. NGINX is the only remotely reachable entrypoint.
 
-Remote clients can access only `/v1/chat/completions`, gated by `Authorization: Bearer $LLM_API_KEY`; plain HTTP on port 80 is redirected to HTTPS. Full, unauthenticated access remains available from localhost via `127.0.0.1:38000` (directly to `llm`, bypassing NGINX). Remove the `127.0.0.1:38000:37000` mapping in [`compose.yaml`](./compose.yaml) to disable it.
+Remote clients can access only `/v1/chat/completions`, gated by `Authorization: Bearer $LLM_API_KEY`; plain HTTP on port 80 is redirected to HTTPS. Full, unauthenticated access remains available from localhost via `127.0.0.1:38000` (directly to `llama-cpp`, bypassing NGINX). Remove the `127.0.0.1:38000:37000` mapping in [`compose.yaml`](./compose.yaml) to disable it.
 
 Edit [`compose.yaml`](./compose.yaml) if you want a different model or API port. Edit [`nginx-http01.conf`](./nginx-http01.conf) and [`nginx-tls.conf`](./nginx-tls.conf) if you want to change the proxy behavior. Edit [`compose.local.yaml`](./compose.local.yaml) if you want a network-isolated local deployment without any published ports.

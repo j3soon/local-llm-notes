@@ -1,7 +1,8 @@
+name: local-llm
+
 services:
-  llm:
+  llama-cpp:
     image: ${LLAMA_CPP_IMAGE}
-    container_name: local-llm-llama-cpp
     restart: unless-stopped
     command: >-
       -hf unsloth/Qwen3.5-122B-A10B-MTP-GGUF:UD-Q4_K_XL
@@ -36,10 +37,9 @@ services:
 
   nginx:
     image: nginx:1.29
-    container_name: local-llm-nginx
     restart: unless-stopped
     depends_on:
-      - llm
+      - llama-cpp
     env_file:
       - .env
     ports:
@@ -55,7 +55,6 @@ services:
 
   certbot:
     image: certbot/certbot:latest
-    container_name: local-llm-certbot
     restart: unless-stopped
     depends_on:
       - nginx
@@ -69,7 +68,7 @@ services:
       - ./state/letsencrypt:/etc/letsencrypt
       - ./state/www:/var/www/certbot
 
-# `llm` stays private on the Compose network.
+# `llama-cpp` stays private on the Compose network.
 # `nginx` is the only public entrypoint for the API.
 # Port 80 is exposed only for the Let's Encrypt HTTP challenge.
 # Edit this file directly if you want a different model, API port, or llama.cpp flags.

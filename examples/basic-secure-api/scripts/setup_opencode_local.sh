@@ -35,7 +35,7 @@ SETUP_CONFIG_JSON=$(cat <<'EOF'
       "npm": "@ai-sdk/openai-compatible",
       "name": "llama.cpp (offline)",
       "options": {
-        "baseURL": "http://local-llm-llama-cpp:37000/v1",
+        "baseURL": "http://llama-cpp:37000/v1",
         "headers": {
           "Content-Type": "application/json"
         }
