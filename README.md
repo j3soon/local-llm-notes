@@ -187,6 +187,14 @@ docker run --rm -it --gpus all --network=host \
 
 Above seems to run well on 24GB VRAM.
 
+## Live Evals / Benchmarks
+
+- [Next.js Evals](https://nextjs.org/evals)
+- [OpenHands Index](https://index.openhands.dev/home)
+- [Artificial Analysis Coding Agents](https://artificialanalysis.ai/agents/coding-agents)
+- [SWE-bench](https://www.swebench.com/)
+- [SWE-bench Pro](https://labs.scale.com/leaderboard/swe_bench_pro_public)
+
 ## Appendix
 
 ### DGX Spark Support
