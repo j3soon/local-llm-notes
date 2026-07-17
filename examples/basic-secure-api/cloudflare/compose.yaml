@@ -49,6 +49,7 @@ services:
 
   cloudflared:
     image: cloudflare/cloudflared:latest
+    container_name: local-llm-cloudflared
     restart: unless-stopped
     depends_on:
       - nginx
