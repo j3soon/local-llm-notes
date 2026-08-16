@@ -32,7 +32,7 @@ docker compose restart nginx  # After first certificate
 - Use `j3soon/llama.cpp:server-cuda-spark` on DGX Spark.
 - Use `ghcr.io/ggml-org/llama.cpp:server-cuda` on x86 CUDA hosts such as RTX PRO 6000.
 
-This example runs `unsloth/Qwen3.5-122B-A10B-MTP-GGUF:UD-Q4_K_XL` with MTP speculative decoding. It requires about 70GB of VRAM without offloading.
+This example runs `unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_XL` with MTP speculative decoding, following the [repo README](../../README.md#qwen38). The Q4 model requires 17GB-19GB total RAM and VRAM, plus about 2GB of additional memory for MTP.
 
 ## Local-Only Deployment
 

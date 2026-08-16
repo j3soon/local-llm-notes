@@ -36,6 +36,8 @@ docker compose up -d
 - `CLOUDFLARE_TUNNEL_TOKEN` must be set in `.env`.
 - Port `38000` is exposed locally for the llama.cpp web UI.
 
+This example runs `unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_XL` with MTP speculative decoding, following the [repo README](../../../README.md#qwen38). The Q4 model requires 17GB-19GB total RAM and VRAM, plus about 2GB of additional memory for MTP. Run the internet-enabled stack first to download the model into `../../../.cache` before starting `compose.local.yaml`.
+
 ## Test
 
 ```sh
