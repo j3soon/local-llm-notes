@@ -145,6 +145,57 @@ docker run --rm -it --gpus all --network=host \
     --jinja
 ```
 
+### Qwen3.8
+
+Follow the [Unsloth docs](https://unsloth.ai/docs/models/qwen3.8#run-qwen3.8-in-llama.cpp) for the Qwen3.8 27B model:
+
+Both examples below use the thinking-mode settings with medium reasoning effort and enable MTP as described in the [Unsloth MTP guide](https://unsloth.ai/docs/models/mtp).
+
+#### Q4
+
+```sh
+docker run --rm -it --gpus all --network=host \
+  -v ./.cache:/root/.cache \
+  ghcr.io/ggml-org/llama.cpp:server-cuda \
+    -hf unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_XL \
+    --ctx-size 16384 \
+    --temp 1.0 \
+    --top-p 0.95 \
+    --top-k 20 \
+    --min-p 0.0 \
+    --chat-template-kwargs '{"reasoning_effort":"medium"}' \
+    --spec-type draft-mtp \
+    --spec-draft-n-max 2 \
+    --jinja
+```
+
+As mentioned in the Unsloth docs, the 4-bit `Qwen3.8-27B-GGUF` model requires 17GB-19GB total RAM and VRAM.
+
+#### BF16
+
+```sh
+docker run --rm -it --gpus all --network=host \
+  -v ./.cache:/root/.cache \
+  ghcr.io/ggml-org/llama.cpp:server-cuda \
+    -hf unsloth/Qwen3.8-27B-GGUF \
+    --hf-file BF16/Qwen3.8-27B-BF16-00001-of-00002.gguf \
+    --ctx-size 16384 \
+    --temp 1.0 \
+    --top-p 0.95 \
+    --top-k 20 \
+    --min-p 0.0 \
+    --chat-template-kwargs '{"reasoning_effort":"medium"}' \
+    --spec-type draft-mtp \
+    --spec-draft-n-max 2 \
+    --jinja
+```
+
+The BF16 model files are about 55GB, and the Unsloth docs list a 56GB total RAM and VRAM requirement. Leave additional memory available for runtime overhead and the KV cache.
+
+The regular Qwen3.8 GGUF includes MTP support, so a separate MTP model repository is not required. Unsloth recommends starting with `--spec-draft-n-max 2`, then testing values from 1 through 6 to find the fastest setting for the hardware. MTP requires about 2GB of additional RAM or VRAM.
+
+For Jetson devices, refer to [Qwen3.8 27B on Jetson AI Labs](https://www.jetson-ai-lab.com/models/qwen3-8-27b/).
+
 ### Qwen3-VL
 
 Follow the [Unsloth docs](https://unsloth.ai/docs/models/qwen3-how-to-run-and-fine-tune/qwen3-vl-how-to-run-and-fine-tune):
