@@ -207,7 +207,7 @@ docker run --rm -it --gpus all --ipc=host \
     --speculative-config '{"method":"mtp","num_speculative_tokens":2}'
 ```
 
-The NVFP4 repository includes the MTP weights, so a separate draft model is not required.
+The NVFP4 repository includes the MTP weights, so a separate draft model is not required. Follow the [Open WebUI](#open-webui) section to test the model in a web GUI.
 
 For Jetson devices, refer to [Qwen3.8 27B on Jetson AI Labs](https://www.jetson-ai-lab.com/models/qwen3-8-27b/).
 
@@ -252,6 +252,24 @@ docker run --rm -it --gpus all --network=host \
 ```
 
 Above seems to run well on 24GB VRAM.
+
+## Open WebUI
+
+Follow the [Open WebUI quick start](https://docs.openwebui.com/getting-started/quick-start/). This connects to an OpenAI-compatible server listening on host port 8000:
+
+```sh
+docker run -d \
+  --network=host \
+  -e PORT=3000 \
+  -e WEBUI_AUTH=False \
+  -e OPENAI_API_BASE_URL=http://127.0.0.1:8000/v1 \
+  -e OPENAI_API_KEY=none \
+  -e DEFAULT_MODEL_METADATA='{"capabilities":{"builtin_tools":false}}' \
+  -v open-webui:/app/backend/data \
+  ghcr.io/open-webui/open-webui:main
+```
+
+Open <http://localhost:3000>. Authentication is disabled, so only expose the port behind a trusted firewall. Built-in tools are disabled by default because vLLM requires additional tool-calling flags to accept them.
 
 ## Live Evals / Benchmarks
 
