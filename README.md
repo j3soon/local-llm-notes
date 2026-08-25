@@ -149,7 +149,7 @@ docker run --rm -it --gpus all --network=host \
 
 Follow the [Unsloth docs](https://unsloth.ai/docs/models/qwen3.8#run-qwen3.8-in-llama.cpp) for the Qwen3.8 27B model:
 
-Both examples below use the thinking-mode settings with medium reasoning effort and enable MTP as described in the [Unsloth MTP guide](https://unsloth.ai/docs/models/mtp).
+The Q4 and BF16 examples below use the thinking-mode settings with medium reasoning effort and enable MTP as described in the [Unsloth MTP guide](https://unsloth.ai/docs/models/mtp).
 
 #### Q4
 
@@ -193,6 +193,21 @@ docker run --rm -it --gpus all --network=host \
 The BF16 model files are about 55GB, and the Unsloth docs list a 56GB total RAM and VRAM requirement. Leave additional memory available for runtime overhead and the KV cache.
 
 The regular Qwen3.8 GGUF includes MTP support, so a separate MTP model repository is not required. Unsloth recommends starting with `--spec-draft-n-max 2`, then testing values from 1 through 6 to find the fastest setting for the hardware. MTP requires about 2GB of additional RAM or VRAM.
+
+#### NVFP4 (vLLM)
+
+Follow the [Unsloth NVFP4 instructions](https://unsloth.ai/docs/models/qwen3.8#nvfp4). NVFP4 requires an NVIDIA Blackwell GPU.
+
+```sh
+docker run --rm -it --gpus all --ipc=host \
+  -p 8000:8000 \
+  -v ./.cache:/root/.cache \
+  vllm/vllm-openai:latest \
+    unsloth/Qwen3.8-27B-NVFP4 \
+    --speculative-config '{"method":"mtp","num_speculative_tokens":2}'
+```
+
+The NVFP4 repository includes the MTP weights, so a separate draft model is not required.
 
 For Jetson devices, refer to [Qwen3.8 27B on Jetson AI Labs](https://www.jetson-ai-lab.com/models/qwen3-8-27b/).
 
