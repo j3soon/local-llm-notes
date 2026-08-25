@@ -273,6 +273,68 @@ Open <http://localhost:3000>. Authentication is disabled, so only expose the por
 
 ## Live Evals / Benchmarks
 
+Run one backend at a time using the Qwen3.8 commands above. The recorded vLLM runs added the optional `--gpu-memory-utilization 0.55` to leave VRAM for other workloads. For llama.cpp, add `--port 8000 --alias qwen38-q4 --parallel 8 --n-gpu-layers all --flash-attn on --metrics`.
+
+### NVIDIA Dynamo AIPerf
+
+Use the official NVIDIA Dynamo [AIPerf](https://github.com/ai-dynamo/aiperf) container:
+
+```sh
+docker run --rm --network=host \
+  -v ./.cache:/app/.cache \
+  --entrypoint aiperf \
+  nvcr.io/nvidia/ai-dynamo/aiperf:0.11.0 \
+    profile \
+    --model unsloth/Qwen3.8-27B-NVFP4 \
+    --tokenizer unsloth/Qwen3.8-27B-NVFP4 \
+    --url http://127.0.0.1:8000 \
+    --endpoint-type chat \
+    --streaming \
+    --use-legacy-max-tokens \
+    --synthetic-input-tokens-mean 1024 \
+    --synthetic-input-tokens-stddev 0 \
+    --output-tokens-mean 128 \
+    --output-tokens-stddev 0 \
+    --extra-inputs '{"min_tokens":128,"ignore_eos":true,"temperature":0,"chat_template_kwargs":{"reasoning_effort":"medium"}}' \
+    --concurrency 8 \
+    --request-count 32 \
+    --warmup-request-count 2 \
+    --num-dataset-entries 32 \
+    --random-seed 42 \
+    --no-server-metrics \
+    --no-gpu-telemetry \
+    --ui none
+```
+
+For llama.cpp, change `--model` to `qwen38-q4`. For concurrency 1, use `--concurrency 1 --request-count 8`.
+
+### vLLM bench serve
+
+Use the vLLM container as the benchmark client:
+
+```sh
+docker run --rm --network=host \
+  -v ./.cache:/root/.cache \
+  --entrypoint vllm \
+  vllm/vllm-openai:latest \
+    bench serve \
+    --backend openai \
+    --base-url http://127.0.0.1:8000 \
+    --model unsloth/Qwen3.8-27B-NVFP4 \
+    --dataset-name random \
+    --random-input-len 1024 \
+    --random-output-len 128 \
+    --random-range-ratio 0 \
+    --num-prompts 32 \
+    --num-warmups 2 \
+    --max-concurrency 8 \
+    --request-rate inf \
+    --ignore-eos \
+    --seed 42
+```
+
+For llama.cpp, add `--served-model-name qwen38-q4`. For concurrency 1, use `--num-prompts 8 --max-concurrency 1`. See the [measured results](PERFORMANCE.md).
+
 - [Next.js Evals](https://nextjs.org/evals)
 - [OpenHands Index](https://index.openhands.dev/home)
 - [Artificial Analysis Coding Agents](https://artificialanalysis.ai/agents/coding-agents)
