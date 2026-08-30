@@ -48,5 +48,5 @@ services:
       - nginx
     command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:?Set CLOUDFLARE_TUNNEL_TOKEN in .env}
 
-# The model server stays private; only the authenticated chat endpoint is
-# reachable through NGINX and Cloudflare Tunnel.
+# The model server stays private; only authenticated model discovery and chat
+# completions are reachable through NGINX and Cloudflare Tunnel.

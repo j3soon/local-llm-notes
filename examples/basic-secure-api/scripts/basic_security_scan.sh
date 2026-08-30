@@ -97,8 +97,16 @@ check_internal_urls_blocked() {
     code_root="$(http_status "https://$origin/")"
     [ "$code_root" = "403" ] || fail "remote / should be blocked with 403, got $code_root"
 
-    code_models="$(http_status "https://$origin/v1/models")"
-    [ "$code_models" = "403" ] || fail "remote /v1/models should be blocked with 403, got $code_models"
+    code_models_no_key="$(http_status "https://$origin/v1/models")"
+    [ "$code_models_no_key" = "401" ] || fail "remote /v1/models without an API key should return 401, got $code_models_no_key"
+
+    code_models="$(http_status "https://$origin/v1/models" \
+        -H "Authorization: Bearer $api_key")"
+    [ "$code_models" = "200" ] || fail "authenticated /v1/models should return 200, got $code_models"
+
+    code_unknown="$(http_status "https://$origin/v1/embeddings" \
+        -H "Authorization: Bearer $api_key")"
+    [ "$code_unknown" = "403" ] || fail "unapproved /v1 routes should be blocked with 403, got $code_unknown"
 
     code_api="$(http_status "https://$origin/v1/chat/completions" \
         -H 'Content-Type: application/json' \
@@ -106,7 +114,7 @@ check_internal_urls_blocked() {
         -d '{"messages":[{"role":"user","content":"Hello"}]}')"
     [ "$code_api" != "403" ] || fail "/v1/chat/completions should not be blocked"
     [ "$code_api" != "401" ] || fail "/v1/chat/completions rejected the provided API key"
-    pass "internal URLs are blocked while chat completions remains reachable"
+    pass "only authenticated model discovery and chat completions are reachable"
 }
 
 check_sensitive_response_data() {
