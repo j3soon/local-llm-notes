@@ -1,6 +1,6 @@
 # Basic Secure API
 
-Run `llama.cpp` with secure public access. Choose one of the following deployment methods:
+Run `llama.cpp` or vLLM with secure public access. Choose one of the following deployment methods:
 
 ## Options
 
@@ -13,6 +13,8 @@ cd cloudflare
 ./scripts/gen_env.sh .env
 docker compose up -d
 ```
+
+For Qwen3.8 NVFP4 with vLLM and MTP 2, use `docker compose -f compose.vllm.yaml up -d` instead.
 
 ### Certbot/NGINX (Legacy)
 
@@ -28,15 +30,15 @@ docker compose restart nginx  # After first certificate
 
 ## Common Requirements
 
-- `LLAMA_CPP_IMAGE` in `.env` must match your system.
-- Use `j3soon/llama.cpp:server-cuda-spark` on DGX Spark.
-- Use `ghcr.io/ggml-org/llama.cpp:server-cuda` on x86 CUDA hosts such as RTX PRO 6000.
+- For llama.cpp, `LLAMA_CPP_IMAGE` in `.env` must match your system.
+- Use `j3soon/llama.cpp:server-cuda-spark` on DGX Spark or `ghcr.io/ggml-org/llama.cpp:server-cuda` on x86 CUDA hosts.
+- The vLLM NVFP4 option requires an NVIDIA Blackwell GPU.
 
-This example runs `unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_XL` with MTP speculative decoding, following the [repo README](../../README.md#qwen38). The Q4 model requires 17GB-19GB total RAM and VRAM, plus about 2GB of additional memory for MTP.
+The default Compose files run `unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_XL`. The Cloudflare vLLM option runs `unsloth/Qwen3.8-27B-NVFP4`. Both enable MTP 2, following the [repo README](../../README.md#qwen38).
 
 ## Local-Only Deployment
 
-For local deployments with no published ports, both directories include `compose.local.yaml`:
+For local llama.cpp deployments with no published ports, both directories include `compose.local.yaml`:
 
 ```sh
 cd <certbot|cloudflare>

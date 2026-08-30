@@ -1,5 +1,6 @@
 #!/bin/sh
 set -eu
+umask 077
 
 out_file="${1:-.env}"
 

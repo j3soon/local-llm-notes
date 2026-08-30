@@ -43,6 +43,8 @@ services:
       - llama-cpp
     env_file:
       - .env
+    environment:
+      LLM_UPSTREAM: llama-cpp:37000
     command: ["/bin/sh", "/opt/nginx/start-nginx.sh"]
     volumes:
       - ./nginx.conf:/opt/nginx/nginx.conf.template:ro

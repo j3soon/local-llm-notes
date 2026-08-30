@@ -15,8 +15,13 @@ This directory contains the recommended deployment using Cloudflare Tunnel for s
 ```sh
 cd cloudflare
 ./scripts/gen_env.sh .env
-cat .env
 docker compose up -d
+```
+
+For Qwen3.8 NVFP4 with vLLM and MTP 2 (`LLAMA_CPP_IMAGE` is ignored):
+
+```sh
+docker compose -f compose.vllm.yaml up -d
 ```
 
 Or manually:
@@ -30,13 +35,12 @@ docker compose up -d
 
 ## Requirements
 
-- `LLAMA_CPP_IMAGE` in `.env` must match your system.
-- Use `j3soon/llama.cpp:server-cuda-spark` on DGX Spark.
-- Use `ghcr.io/ggml-org/llama.cpp:server-cuda` on x86 CUDA hosts such as RTX PRO 6000.
+- For llama.cpp, `LLAMA_CPP_IMAGE` in `.env` must match your system.
+- Use `j3soon/llama.cpp:server-cuda-spark` on DGX Spark or `ghcr.io/ggml-org/llama.cpp:server-cuda` on x86 CUDA hosts.
 - `CLOUDFLARE_TUNNEL_TOKEN` must be set in `.env`.
-- Port `38000` is exposed locally for the llama.cpp web UI.
+- The llama.cpp stack exposes its web UI on host-local port `38000`; the vLLM stack publishes no host ports.
 
-This example runs `unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_XL` with MTP speculative decoding, following the [repo README](../../../README.md#qwen38). The Q4 model requires 17GB-19GB total RAM and VRAM, plus about 2GB of additional memory for MTP. Run the internet-enabled stack first to download the model into `../../../.cache` before starting `compose.local.yaml`.
+The default stack runs `unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_XL`; `compose.vllm.yaml` runs `unsloth/Qwen3.8-27B-NVFP4`. Both enable MTP 2, following the [repo README](../../../README.md#qwen38). The vLLM stack enables tool calling, the full 262,144-token model context, and up to four simultaneous sequences. NVFP4 requires an NVIDIA Blackwell GPU. Run the internet-enabled llama.cpp stack first to download the GGUF model before starting `compose.local.yaml`.
 
 ## Test
 
@@ -52,6 +56,8 @@ curl https://$SERVER_NAME/v1/chat/completions \
   }'
 ```
 
+For vLLM, also include `"model": "unsloth/Qwen3.8-27B-NVFP4"` in the request body.
+
 Local llama.cpp UI from the Docker host (bypasses `nginx`, so no API key needed):
 
 ```sh
@@ -60,7 +66,7 @@ curl http://127.0.0.1:38000/
 
 ## Local-Only Deployment
 
-For a local-only deployment with no published ports:
+For a local-only llama.cpp deployment with no published ports:
 
 ```sh
 docker compose -f compose.local.yaml up -d
@@ -101,6 +107,6 @@ LLM_API_KEY='<value from .env>'
 ../scripts/basic_security_scan.sh "$SERVER_NAME" "$LLM_API_KEY"
 ```
 
-`llama-cpp` stays private on the Compose network, except for a localhost-only UI binding on `127.0.0.1:38000`. Cloudflare Tunnel, forwarding into `nginx`, is the only remotely reachable entrypoint.
+The model server stays private on the Compose network. The llama.cpp stack additionally has a localhost-only UI binding on `127.0.0.1:38000`; the vLLM stack publishes no ports. Cloudflare Tunnel, forwarding into `nginx`, is the only remotely reachable entrypoint.
 
-Remote clients can access only `/v1/chat/completions`, gated by `Authorization: Bearer $LLM_API_KEY` (checked by `nginx`, same as the certbot setup); plain HTTP is redirected to HTTPS by Cloudflare's "Always Use HTTPS" setting. Full, unauthenticated access remains available from localhost via `127.0.0.1:38000` (directly to `llama-cpp`, bypassing `nginx`). Remove the `127.0.0.1:38000:37000` mapping in [`compose.yaml`](./compose.yaml) to disable it.
+Remote clients can access only `/v1/chat/completions`, gated by `Authorization: Bearer $LLM_API_KEY`; the vLLM stack also validates the same key at the model server. Plain HTTP is redirected to HTTPS by Cloudflare's "Always Use HTTPS" setting. The llama.cpp UI remains available without authentication from localhost via `127.0.0.1:38000`; remove that mapping from [`compose.yaml`](./compose.yaml) to disable it.
