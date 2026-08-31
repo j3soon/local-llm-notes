@@ -72,17 +72,62 @@ For a local-only llama.cpp deployment with no published ports:
 docker compose -f compose.local.yaml up -d
 ```
 
-## Optional OpenCode Setup
+## Optional OpenCode and Pi Setup
 
-The setup scripts require `jq`. They preserve existing OpenCode settings and providers, replace only their respective provider block, and make their model the default.
+The setup scripts require Bash and `jq`. They validate and atomically update existing configuration, preserve unrelated settings and providers, and make the configured model the default. Each script asks for a provider ID; accepting the default creates or updates `llm-remote` or `llm-local`, while a custom ID creates or updates only that exact entry.
 
-### Local Model with Internet Access
+> **Breaking change:** the default IDs were changed from `llamacpp-remote` and `llamacpp-local` to `llm-remote` and `llm-local`. Existing `llamacpp-*` providers are preserved and are not migrated automatically.
 
-Run `../scripts/setup_opencode.sh` to add or update the `llamacpp-remote` provider so OpenCode can talk to the local `llama.cpp` endpoint.
+### Remote or Published Endpoint
+
+Choose the client you use, download its remote setup script from this repository, and run it:
+
+```sh
+# OpenCode
+curl -fsSLO https://raw.githubusercontent.com/j3soon/local-llm-notes/main/examples/basic-secure-api/scripts/setup_opencode.sh
+chmod +x setup_opencode.sh
+./setup_opencode.sh
+
+# Pi
+curl -fsSLO https://raw.githubusercontent.com/j3soon/local-llm-notes/main/examples/basic-secure-api/scripts/setup_pi.sh
+chmod +x setup_pi.sh
+./setup_pi.sh
+```
+
+The remote scripts accept authenticated and unauthenticated OpenAI-compatible endpoints. When supplied, the API key is embedded in `~/.config/opencode/opencode.json` for OpenCode or `~/.pi/agent/models.json` for Pi; any timestamped `.bak.<timestamp>` file created on a later update also contains the credential. Keep these files private. Pi stores a non-secret placeholder when the endpoint needs no key because Pi requires a configured API-key value to make a custom model available.
 
 ### Local Model with No Internet Access
 
-For the local/offline Compose stack, run `../scripts/setup_opencode_local.sh` from the OpenCode container or environment that uses `local-llm-internal`. It adds or updates the `llamacpp-local` provider to reach `llama.cpp` at `http://llama-cpp:37000/v1` without an API key.
+Choose the corresponding local script:
+
+```sh
+# OpenCode
+curl -fsSLO https://raw.githubusercontent.com/j3soon/local-llm-notes/main/examples/basic-secure-api/scripts/setup_opencode_local.sh
+chmod +x setup_opencode_local.sh
+./setup_opencode_local.sh
+
+# Pi
+curl -fsSLO https://raw.githubusercontent.com/j3soon/local-llm-notes/main/examples/basic-secure-api/scripts/setup_pi_local.sh
+chmod +x setup_pi_local.sh
+./setup_pi_local.sh
+```
+
+The local scripts use the unauthenticated endpoint `http://llama-cpp:37000/v1`; Pi stores a dummy API key as required for keyless custom providers. OpenCode or Pi must run in a container attached to the external `local-llm-internal` Docker network. Mount the selected client's host configuration into the home directory of the container user (the example below assumes the container runs as root):
+
+```yaml
+services:
+  agent:
+    image: your-agent-image
+    volumes:
+      - ${HOME}/.config/opencode:/root/.config/opencode # OpenCode
+      - ${HOME}/.pi/agent:/root/.pi/agent               # Pi
+    networks:
+      - local-llm-internal
+
+networks:
+  local-llm-internal:
+    external: true
+```
 
 ### NVIDIA Nemotron 3
 
