@@ -51,6 +51,16 @@ if [[ -z "${PROVIDER_ID}" || "${PROVIDER_ID}" =~ [[:space:]/] ]]; then
     exit 1
 fi
 
+read -r -p "Enable image input for this model? [y/N]: " IMAGE_INPUT
+IMAGE_INPUT="${IMAGE_INPUT:-n}"
+if [[ "${IMAGE_INPUT}" =~ ^[Yy]$ ]]; then
+    MODEL_INPUT_JSON='["text", "image"]'
+    MODEL_INPUT_LABEL="text + image"
+else
+    MODEL_INPUT_JSON='["text"]'
+    MODEL_INPUT_LABEL="text only"
+fi
+
 PROVIDER_ACTION="add"
 if [ -f "${MODELS_FILE}" ] && jq -e --arg provider_id "${PROVIDER_ID}" '
     (.providers | type == "object") and (.providers | has($provider_id))
@@ -65,6 +75,7 @@ echo "  Server URL: ${SERVER_URL}"
 echo "  API key: Pi placeholder (the local endpoint is unauthenticated)"
 echo "  Model: ${MODEL_NAME}"
 echo "  Display: ${DISPLAY_NAME}"
+echo "  Model input: ${MODEL_INPUT_LABEL}"
 echo "  Pi default provider/model: ${PROVIDER_ID}/${MODEL_NAME}"
 echo
 
@@ -86,6 +97,7 @@ MODELS_JQ_ARGS=(
     --arg api_key "${DUMMY_API_KEY}"
     --arg model_id "${MODEL_NAME}"
     --arg display_name "${DISPLAY_NAME}"
+    --argjson model_input "${MODEL_INPUT_JSON}"
 )
 MODELS_JQ_FILTER='
   (. // {})
@@ -98,7 +110,8 @@ MODELS_JQ_FILTER='
       "models": [
         {
           "id": $model_id,
-          "name": $display_name
+          "name": $display_name,
+          "input": $model_input
         }
       ]
     }
@@ -126,7 +139,7 @@ else
     jq -n "${SETTINGS_JQ_ARGS[@]}" "${SETTINGS_JQ_FILTER}" > "${SETTINGS_TEMP_FILE}"
 fi
 
-if ! jq -e --arg provider_id "${PROVIDER_ID}" --arg model_id "${MODEL_NAME}" '
+if ! jq -e --arg provider_id "${PROVIDER_ID}" --arg model_id "${MODEL_NAME}" --argjson model_input "${MODEL_INPUT_JSON}" '
     type == "object"
     and (.providers | type == "object")
     and (.providers[$provider_id] | type == "object")
@@ -134,7 +147,7 @@ if ! jq -e --arg provider_id "${PROVIDER_ID}" --arg model_id "${MODEL_NAME}" '
     and (.providers[$provider_id].api == "openai-completions")
     and (.providers[$provider_id].apiKey | type == "string" and length > 0)
     and (.providers[$provider_id].models | type == "array")
-    and any(.providers[$provider_id].models[]; .id == $model_id)
+    and any(.providers[$provider_id].models[]; .id == $model_id and (.input | type == "array") and ((.input | sort) == ($model_input | sort)))
 ' "${MODELS_TEMP_FILE}" >/dev/null; then
     echo "Generated Pi models configuration failed validation; no files were changed." >&2
     exit 1
