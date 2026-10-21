@@ -1,15 +1,46 @@
+# Comment out models and their virtual-key permissions when their API key is empty.
 model_list:
-  - model_name: gpt-6.1-sol
-    litellm_params:
-      model: openai/gpt-6.1-sol
-      api_key: os.environ/OPENAI_API_KEY
-    # Keep the upstream model name so LiteLLM can use its OpenAI cost map,
-    # including cached input and reasoning/output token pricing.
+  # Optional direct OpenAI routes (disabled by default).
+  # - model_name: gpt-6.1-sol
+  #   litellm_params:
+  #     model: openai/gpt-6.1-sol
+  #     api_key: os.environ/OPENAI_API_KEY
+  #   # Keep the upstream model name so LiteLLM can use its OpenAI cost map,
+  #   # including cached input and reasoning/output token pricing.
 
-  - model_name: gpt-6-luna
+  # - model_name: gpt-6-luna
+  #   litellm_params:
+  #     model: openai/gpt-6-luna
+  #     api_key: os.environ/OPENAI_API_KEY
+
+  # Azure deployments: set AZURE_API_KEY, AZURE_API_BASE, and AZURE_API_VERSION.
+  # Deployment names must match those in your Azure resource.
+  # Reference: https://docs.litellm.ai/docs/providers/azure
+  - model_name: azure/gpt-6.1-sol
     litellm_params:
-      model: openai/gpt-6-luna
-      api_key: os.environ/OPENAI_API_KEY
+      model: azure/gpt-6.1-sol
+      api_key: os.environ/AZURE_API_KEY
+      api_base: os.environ/AZURE_API_BASE
+      api_version: os.environ/AZURE_API_VERSION
+    model_info:
+      base_model: azure/gpt-6.1-sol
+
+  - model_name: azure/gpt-6-luna
+    litellm_params:
+      model: azure/gpt-6-luna
+      api_key: os.environ/AZURE_API_KEY
+      api_base: os.environ/AZURE_API_BASE
+      api_version: os.environ/AZURE_API_VERSION
+    model_info:
+      base_model: azure/gpt-6-luna
+
+  # Model Router reports its selected model; do not set a fixed base_model.
+  # - model_name: azure/model-router
+  #   litellm_params:
+  #     model: azure/model-router
+  #     api_key: os.environ/AZURE_API_KEY
+  #     api_base: os.environ/AZURE_API_BASE
+  #     api_version: os.environ/AZURE_API_VERSION
 
   - model_name: unsloth/Qwen3.8-27B-NVFP4
     litellm_params:
@@ -35,8 +66,11 @@ litellm_settings:
   # Defaults applied when a virtual key is created through the local API/UI.
   default_key_generate_params:
     models:
-      - gpt-6.1-sol
-      - gpt-6-luna
+      # - gpt-6.1-sol
+      # - gpt-6-luna
+      - azure/gpt-6.1-sol
+      - azure/gpt-6-luna
+      # - azure/model-router
       - unsloth/Qwen3.8-27B-NVFP4
     max_budget: 20
     budget_duration: 30d

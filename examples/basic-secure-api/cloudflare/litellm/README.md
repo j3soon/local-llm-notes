@@ -1,6 +1,6 @@
 # LiteLLM Proxy
 
-Standalone [LiteLLM](https://docs.litellm.ai/docs/proxy/docker_quick_start) deployment for OpenAI GPT and the existing Qwen3.8 27B vLLM API. It follows the [official Compose quickstart](https://raw.githubusercontent.com/BerriAI/litellm/main/docker/docker-compose.quickstart.yml), adding model configuration and an API-only NGINX gateway behind Cloudflare Tunnel. The four services are LiteLLM, Postgres, NGINX, and `cloudflared`, using their own `local-llm-proxy` Compose project with no GPU. Start and stop [vLLM](../compose.vllm.yaml) independently; leave its Compose file and `.env` as they are. Qwen requests require that upstream to be running; GPT requests work without it.
+Standalone [LiteLLM](https://docs.litellm.ai/docs/proxy/docker_quick_start) deployment for OpenAI GPT, optional Azure OpenAI, and the existing Qwen3.8 27B vLLM API. It follows the [official Compose quickstart](https://raw.githubusercontent.com/BerriAI/litellm/main/docker/docker-compose.quickstart.yml), adding model configuration and an API-only NGINX gateway behind Cloudflare Tunnel. The four services are LiteLLM, Postgres, NGINX, and `cloudflared`, using their own `local-llm-proxy` Compose project with no GPU. Start and stop [vLLM](../compose.vllm.yaml) independently; leave its Compose file and `.env` as they are. Qwen requests require that upstream to be running; GPT requests work without it.
 
 ## Setup
 
@@ -10,11 +10,11 @@ From `examples/basic-secure-api/cloudflare/litellm`:
 ./scripts/gen_env.sh .env
 ```
 
-The script follows the parent deployment's generator convention: it prompts for the proxy hostname/tunnel token, OpenAI key, and existing vLLM endpoint/key, generates independent master/salt/application/database secrets, writes `.env` with mode 600, and refuses to overwrite an existing file. It requires `openssl`. Alternatively, copy `.env.example` to `.env`, run `chmod 600 .env`, and fill in the values manually.
+The script prompts for missing proxy/provider settings and generates missing master/salt/application/database secrets. If `.env` exists, it reuses values for template settings (including explicitly empty optional API keys) and asks for confirmation before replacing the file. On confirmation, it saves the original as `.env_<UTC timestamp>.<random suffix>.bak` with mode 600, then writes only the template settings; variables outside the template are dropped. These backups are ignored by Git. Answering no or pressing Enter leaves it unchanged. The completed file is written atomically with mode 600. Provider keys may be left empty; model selection is manual in YAML. It requires `openssl`. Alternatively, copy `.env.example` to `.env`, run `chmod 600 .env`, and fill in the values manually.
 
 - For manual setup, generate independent master, salt, and application keys with `openssl rand -hex 32` (prefix each with `sk-`), and a hex Postgres password with the same command. The script generates these automatically. Keep the salt and database together across restarts.
-- Set `OPENAI_API_KEY`. Both `gpt-6.1-sol` and `gpt-6-luna` use that key. Model names and provider prefixes are defined directly in `litellm-config.yaml`; change both `model_name` and `litellm_params.model` when selecting another model.
-- Set `VLLM_API_BASE` to the **existing** endpoint, such as `https://llm.example.com/v1`, and `VLLM_API_KEY` to that deployment's `LLM_API_KEY`. The upstream model in `litellm-config.yaml` must match `/v1/models`, with the `hosted_vllm/` routing prefix. Clients request the full served model name `unsloth/Qwen3.8-27B-NVFP4`.
+- Direct OpenAI is commented out by default. To enable it, uncomment its model blocks and permissions and set `OPENAI_API_KEY`. Both `gpt-6.1-sol` and `gpt-6-luna` use that key. Model names and provider prefixes are defined directly in `litellm-config.yaml`; change both `model_name` and `litellm_params.model` when selecting another model.
+- For Qwen, set `VLLM_API_BASE` to the **existing** endpoint, such as `https://llm.example.com/v1`, and `VLLM_API_KEY` to that deployment's `LLM_API_KEY`. The upstream model in `litellm-config.yaml` must match `/v1/models`, with the `hosted_vllm/` routing prefix. Clients request the full served model name `unsloth/Qwen3.8-27B-NVFP4`.
 - Create a **separate** [Cloudflare Tunnel](https://developers.cloudflare.com/tunnel/setup/) for this stack, set its token and a new `SERVER_NAME` in `.env`, and point its public hostname to `http://nginx:80`. Enable Always Use HTTPS. `SERVER_NAME` is used in the curl examples; configure the hostname in Cloudflare too.
 
 The vLLM stack publishes no host port. Its existing HTTPS endpoint is reachable from this proxy without joining its Docker network. `localhost` inside LiteLLM refers to the proxy container. Never point `VLLM_API_BASE` at LiteLLM itself.
@@ -26,6 +26,20 @@ docker compose ps
 ```
 
 Run all Compose commands from this directory, including `logs`, `restart`, and `down`. Its local `.env` and `compose.yaml` belong to the separate `local-llm-proxy` project. The Compose image pins [v1.106.2](https://github.com/BerriAI/litellm/releases/tag/v1.106.2). After editing model routing/pricing in `litellm-config.yaml`, restart `litellm`; after editing environment variables, run `up -d` again.
+
+## Optional providers and Azure OpenAI
+
+Before starting, fill the keys for the models you intend to use. For each unused provider, **comment out its complete entries in `model_list` and its names in `litellm_settings.default_key_generate_params.models`**. Leaving an API key empty does not reliably disable a model or remove it from discovery; commenting out the model removes its route. Keep at least one active model. Master, salt, and application keys remain required.
+
+Azure `gpt-6.1-sol` and `gpt-6-luna` are enabled by default in `litellm-config.yaml`:
+
+1. Set `AZURE_API_KEY`, `AZURE_API_BASE` (the resource root, e.g. `https://your-resource.openai.azure.com/`), and `AZURE_API_VERSION` in `.env`.
+2. Confirm that the `gpt-6.1-sol` and `gpt-6-luna` deployments exist in your Azure resource. Model Router remains commented out; uncomment its block and matching permission only if you want it.
+3. Start the stack, then register the application key as described below. Clients request `azure/gpt-6.1-sol` or `azure/gpt-6-luna`, keeping Azure routes separate from direct OpenAI.
+
+The Azure configuration uses API version `2024-12-01-preview`. The YAML includes the two enabled GPT deployments and an optional Model Router example; copy the direct-model block for other deployments. Set `model_info.base_model` to the actual Azure model for pricing when a deployment name differs. Model Router chooses its underlying model, so its example has no fixed `base_model` or custom price.
+
+References: [LiteLLM Azure OpenAI](https://docs.litellm.ai/docs/providers/azure), [Microsoft Model Router](https://learn.microsoft.com/en-us/azure/foundry/openai/concepts/model-router).
 
 ## Admin access
 
@@ -44,7 +58,7 @@ After the proxy is ready, register the application key once from the Docker host
 
 `APP_API_KEY` holds the secret in `.env`; permissions and limits are defined in `litellm_settings.default_key_generate_params` in `litellm-config.yaml`. The script registers an inference-only key named `app` through the loopback `/key/generate` API. LiteLLM stores it in Postgres; declaring a key in `.env` alone does not register it. No key registration happens automatically at startup, and the script does not overwrite an already registered key. Defaults are copied when a key is created; manage that key's later policy changes through the local Admin UI or `/key/update` ([virtual-key documentation](https://docs.litellm.ai/docs/proxy/virtual_keys)).
 
-The configured defaults allow all three models, a $20 budget resetting every 30 days, and 60 requests per minute. With four users sharing `APP_API_KEY`, both limits apply to their combined usage. Each additional key receives its own budget and rate limit. Qwen has zero configured cost, so its usage is constrained by the rate limit rather than the dollar budget. Edit the defaults before registration to choose your limits.
+The configured defaults allow the three active model entries, a $20 budget resetting every 30 days, and 60 requests per minute. With four users sharing `APP_API_KEY`, both limits apply to their combined usage. Each additional key receives its own budget and rate limit. Qwen has zero configured cost, so its usage is constrained by the rate limit rather than the dollar budget. Edit the defaults before registration to choose your limits.
 
 RPM counts model API calls, not complete conversations or agent runs. A simple turn usually makes one call; an agent turn can make several calls as it processes tool results. Streaming chunks do not count as separate requests. RPM limits request frequency, while `max_parallel_requests` separately limits simultaneous in-flight requests; neither setting counts people ([rate-limit documentation](https://docs.litellm.ai/docs/proxy/users)).
 
@@ -61,7 +75,7 @@ curl -fsS "https://$SERVER_NAME/v1/models" \
 curl -fsS "https://$SERVER_NAME/v1/chat/completions" \
   -H "Authorization: Bearer $APP_API_KEY" \
   -H 'Content-Type: application/json' \
-  -d '{"model":"gpt-6.1-sol","messages":[{"role":"user","content":"What is 17 times 23?"}],"reasoning_effort":"medium"}'
+  -d '{"model":"azure/gpt-6.1-sol","messages":[{"role":"user","content":"What is 17 times 23?"}],"reasoning_effort":"medium"}'
 
 curl -fsS -N "https://$SERVER_NAME/v1/chat/completions" \
   -H "Authorization: Bearer $APP_API_KEY" \
