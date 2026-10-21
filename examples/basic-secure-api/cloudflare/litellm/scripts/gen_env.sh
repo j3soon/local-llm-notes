@@ -43,6 +43,7 @@ vllm_api_key="$(prompt_required 'VLLM_API_KEY (existing vLLM LLM_API_KEY)')"
 
 master_key="sk-$(openssl rand -hex 32)"
 salt_key="sk-$(openssl rand -hex 32)"
+app_api_key="sk-$(openssl rand -hex 32)"
 postgres_password="$(openssl rand -hex 32)"
 
 # Refuse overwrites even if another process creates the file during the prompts.
@@ -55,6 +56,8 @@ CLOUDFLARE_TUNNEL_TOKEN=$cloudflare_tunnel_token
 # Keep these secrets with the database; do not regenerate the salt on restart.
 LITELLM_MASTER_KEY=$master_key
 LITELLM_SALT_KEY=$salt_key
+# Register this client key with ./scripts/create_virtual_key.sh.
+APP_API_KEY=$app_api_key
 POSTGRES_PASSWORD=$postgres_password
 LITELLM_LOG=INFO
 

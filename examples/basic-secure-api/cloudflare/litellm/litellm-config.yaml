@@ -32,6 +32,15 @@ litellm_settings:
   turn_off_message_logging: false
   # Reject unsupported parameters instead of silently removing them.
   drop_params: false
+  # Defaults applied when a virtual key is created through the local API/UI.
+  default_key_generate_params:
+    models:
+      - gpt-6.1-sol
+      - gpt-6-luna
+      - unsloth/Qwen3.8-27B-NVFP4
+    max_budget: 20
+    budget_duration: 30d
+    rpm_limit: 60
 
 router_settings:
   # Avoid automatically repeating a billable request after an upstream failure.

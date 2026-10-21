@@ -10,9 +10,9 @@ From `examples/basic-secure-api/cloudflare/litellm`:
 ./scripts/gen_env.sh .env
 ```
 
-The script follows the parent deployment's generator convention: it prompts for the proxy hostname/tunnel token, OpenAI key, and existing vLLM endpoint/key, generates independent master/salt/database secrets, writes `.env` with mode 600, and refuses to overwrite an existing file. It requires `openssl`. Alternatively, copy `.env.example` to `.env`, run `chmod 600 .env`, and fill in the values manually.
+The script follows the parent deployment's generator convention: it prompts for the proxy hostname/tunnel token, OpenAI key, and existing vLLM endpoint/key, generates independent master/salt/application/database secrets, writes `.env` with mode 600, and refuses to overwrite an existing file. It requires `openssl`. Alternatively, copy `.env.example` to `.env`, run `chmod 600 .env`, and fill in the values manually.
 
-- For manual setup, generate independent master and salt keys with `openssl rand -hex 32` (prefix each with `sk-`), and a hex Postgres password with the same command. The script generates these automatically. Keep the salt and database together across restarts.
+- For manual setup, generate independent master, salt, and application keys with `openssl rand -hex 32` (prefix each with `sk-`), and a hex Postgres password with the same command. The script generates these automatically. Keep the salt and database together across restarts.
 - Set `OPENAI_API_KEY`. Both `gpt-6.1-sol` and `gpt-6-luna` use that key. Model names and provider prefixes are defined directly in `litellm-config.yaml`; change both `model_name` and `litellm_params.model` when selecting another model.
 - Set `VLLM_API_BASE` to the **existing** endpoint, such as `https://llm.example.com/v1`, and `VLLM_API_KEY` to that deployment's `LLM_API_KEY`. The upstream model in `litellm-config.yaml` must match `/v1/models`, with the `hosted_vllm/` routing prefix. Clients request the full served model name `unsloth/Qwen3.8-27B-NVFP4`.
 - Create a **separate** [Cloudflare Tunnel](https://developers.cloudflare.com/tunnel/setup/) for this stack, set its token and a new `SERVER_NAME` in `.env`, and point its public hostname to `http://nginx:80`. Enable Always Use HTTPS. `SERVER_NAME` is used in the curl examples; configure the hostname in Cloudflare too.
@@ -36,7 +36,19 @@ Run all Compose commands from this directory, including `logs`, `restart`, and `
 
 ## Requests
 
-Clients use `https://$SERVER_NAME/v1`. The examples authenticate with `LITELLM_MASTER_KEY`; applications can use LiteLLM virtual keys instead. Provider keys stay on the proxy. Cloudflare Tunnel forwards through NGINX to LiteLLM. NGINX permits `GET /v1/models`, `POST /v1/chat/completions`, and `POST /v1/responses`; other paths return 403, including `/ui`, `/docs`, and management APIs. LiteLLM authenticates API keys, including virtual keys. Streaming uses [unbuffered proxying](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_buffering). Keep the master key for trusted administration.
+After the proxy is ready, register the application key once from the Docker host (requires `curl`, `jq`, and the local port mapping):
+
+```sh
+./scripts/create_virtual_key.sh
+```
+
+`APP_API_KEY` holds the secret in `.env`; permissions and limits are defined in `litellm_settings.default_key_generate_params` in `litellm-config.yaml`. The script registers an inference-only key named `app` through the loopback `/key/generate` API. LiteLLM stores it in Postgres; declaring a key in `.env` alone does not register it. No key registration happens automatically at startup, and the script does not overwrite an already registered key. Defaults are copied when a key is created; manage that key's later policy changes through the local Admin UI or `/key/update` ([virtual-key documentation](https://docs.litellm.ai/docs/proxy/virtual_keys)).
+
+The configured defaults allow all three models, a $20 budget resetting every 30 days, and 60 requests per minute. With four users sharing `APP_API_KEY`, both limits apply to their combined usage. Each additional key receives its own budget and rate limit. Qwen has zero configured cost, so its usage is constrained by the rate limit rather than the dollar budget. Edit the defaults before registration to choose your limits.
+
+RPM counts model API calls, not complete conversations or agent runs. A simple turn usually makes one call; an agent turn can make several calls as it processes tool results. Streaming chunks do not count as separate requests. RPM limits request frequency, while `max_parallel_requests` separately limits simultaneous in-flight requests; neither setting counts people ([rate-limit documentation](https://docs.litellm.ai/docs/proxy/users)).
+
+Clients use `https://$SERVER_NAME/v1` with `APP_API_KEY` as their API key. This key permits inference and model discovery without management access. Provider keys stay on the proxy. Cloudflare Tunnel forwards through NGINX to LiteLLM. NGINX permits `GET /v1/models`, `POST /v1/chat/completions`, and `POST /v1/responses`; other paths return 403, including `/ui`, `/docs`, and management APIs. LiteLLM authenticates API keys, including virtual keys. Streaming uses [unbuffered proxying](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_buffering). Keep the master key for trusted administration.
 
 ```sh
 set -a
@@ -44,15 +56,15 @@ source .env
 set +a
 
 curl -fsS "https://$SERVER_NAME/v1/models" \
-  -H "Authorization: Bearer $LITELLM_MASTER_KEY"
+  -H "Authorization: Bearer $APP_API_KEY"
 
 curl -fsS "https://$SERVER_NAME/v1/chat/completions" \
-  -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
+  -H "Authorization: Bearer $APP_API_KEY" \
   -H 'Content-Type: application/json' \
   -d '{"model":"gpt-6.1-sol","messages":[{"role":"user","content":"What is 17 times 23?"}],"reasoning_effort":"medium"}'
 
 curl -fsS -N "https://$SERVER_NAME/v1/chat/completions" \
-  -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
+  -H "Authorization: Bearer $APP_API_KEY" \
   -H 'Content-Type: application/json' \
   -d '{"model":"unsloth/Qwen3.8-27B-NVFP4","messages":[{"role":"user","content":"What is 17 times 23?"}],"chat_template_kwargs":{"reasoning_effort":"medium"},"stream":true,"stream_options":{"include_usage":true}}'
 ```
@@ -63,7 +75,7 @@ For tool calling, pass standard OpenAI `tools` and `tool_choice` fields to eithe
 
 ```sh
 curl -fsS "https://$SERVER_NAME/v1/chat/completions" \
-  -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
+  -H "Authorization: Bearer $APP_API_KEY" \
   -H 'Content-Type: application/json' \
   -d '{"model":"unsloth/Qwen3.8-27B-NVFP4","messages":[{"role":"user","content":"What is the weather in Taipei?"}],"tools":[{"type":"function","function":{"name":"get_weather","description":"Get current weather for a city","parameters":{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}}}],"tool_choice":"auto"}'
 ```
