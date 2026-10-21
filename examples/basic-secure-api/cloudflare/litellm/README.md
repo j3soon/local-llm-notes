@@ -10,6 +10,8 @@ From `examples/basic-secure-api/cloudflare/litellm`:
 ./scripts/gen_env.sh .env
 ```
 
+Generating `APP_API_KEY` only saves its secret in `.env`. Register it after starting the stack with `./scripts/create_virtual_key.sh` below; until then, the UI shows no virtual keys.
+
 The script prompts for missing proxy/provider settings and generates missing master/salt/application/database secrets. If `.env` exists, it reuses values for template settings (including explicitly empty optional API keys) and asks for confirmation before replacing the file. On confirmation, it saves the original as `.env_<UTC timestamp>.<random suffix>.bak` with mode 600, then writes only the template settings; variables outside the template are dropped. These backups are ignored by Git. Answering no or pressing Enter leaves it unchanged. The completed file is written atomically with mode 600. Provider keys may be left empty; model selection is manual in YAML. It requires `openssl`. Alternatively, copy `.env.example` to `.env`, run `chmod 600 .env`, and fill in the values manually.
 
 - For manual setup, generate independent master, salt, and application keys with `openssl rand -hex 32` (prefix each with `sk-`), and a hex Postgres password with the same command. The script generates these automatically. Keep the salt and database together across restarts.
@@ -19,9 +21,12 @@ The script prompts for missing proxy/provider settings and generates missing mas
 
 The vLLM stack publishes no host port. Its existing HTTPS endpoint is reachable from this proxy without joining its Docker network. `localhost` inside LiteLLM refers to the proxy container. Never point `VLLM_API_BASE` at LiteLLM itself.
 
+Start the stack and register the application key once from the Docker host (requires `curl`, `jq`, and the local port mapping):
+
 ```sh
 docker compose config --quiet
-docker compose up -d
+docker compose up -d --wait
+./scripts/create_virtual_key.sh
 docker compose ps
 ```
 
@@ -35,7 +40,7 @@ Azure `gpt-6.1-sol` and `gpt-6-luna` are enabled by default in `litellm-config.y
 
 1. Set `AZURE_API_KEY`, `AZURE_API_BASE` (the resource root, e.g. `https://your-resource.openai.azure.com/`), and `AZURE_API_VERSION` in `.env`.
 2. Confirm that the `gpt-6.1-sol` and `gpt-6-luna` deployments exist in your Azure resource. Model Router remains commented out; uncomment its block and matching permission only if you want it.
-3. Start the stack, then register the application key as described below. Clients request `azure/gpt-6.1-sol` or `azure/gpt-6-luna`, keeping Azure routes separate from direct OpenAI.
+3. Start the stack, then register the application key as shown in Setup above. Clients request `azure/gpt-6.1-sol` or `azure/gpt-6-luna`, keeping Azure routes separate from direct OpenAI.
 
 The Azure configuration uses API version `2024-12-01-preview`. The YAML includes the two enabled GPT deployments and an optional Model Router example; copy the direct-model block for other deployments. Set `model_info.base_model` to the actual Azure model for pricing when a deployment name differs. Model Router chooses its underlying model, so its example has no fixed `base_model` or custom price.
 
@@ -49,12 +54,6 @@ References: [LiteLLM Azure OpenAI](https://docs.litellm.ai/docs/providers/azure)
 - **The Admin UI and management endpoints are blocked through Cloudflare.** The tunnel connects to NGINX, whose dedicated local `nginx.conf` allows only model discovery and inference routes. It does not mount or depend on the vLLM stack's NGINX configuration. Local port 14000 connects directly to LiteLLM for administration.
 
 ## Requests
-
-After the proxy is ready, register the application key once from the Docker host (requires `curl`, `jq`, and the local port mapping):
-
-```sh
-./scripts/create_virtual_key.sh
-```
 
 `APP_API_KEY` holds the secret in `.env`; permissions and limits are defined in `litellm_settings.default_key_generate_params` in `litellm-config.yaml`. The script registers an inference-only key named `app` through the loopback `/key/generate` API. LiteLLM stores it in Postgres; declaring a key in `.env` alone does not register it. No key registration happens automatically at startup, and the script does not overwrite an already registered key. Defaults are copied when a key is created; manage that key's later policy changes through the local Admin UI or `/key/update` ([virtual-key documentation](https://docs.litellm.ai/docs/proxy/virtual_keys)).
 
