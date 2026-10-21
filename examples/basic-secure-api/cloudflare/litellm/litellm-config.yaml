@@ -15,6 +15,7 @@ model_list:
 
   # Azure deployments: set AZURE_API_KEY, AZURE_API_BASE, and AZURE_API_VERSION.
   # Deployment names must match those in your Azure resource.
+  # Explicit IDs keep deployment identity independent of connection parameters.
   # Reference: https://docs.litellm.ai/docs/providers/azure
   - model_name: azure/gpt-6.1-sol
     litellm_params:
@@ -23,6 +24,7 @@ model_list:
       api_base: os.environ/AZURE_API_BASE
       api_version: os.environ/AZURE_API_VERSION
     model_info:
+      id: azure-gpt-6-1-sol
       base_model: azure/gpt-6.1-sol
 
   - model_name: azure/gpt-6-luna
@@ -32,6 +34,7 @@ model_list:
       api_base: os.environ/AZURE_API_BASE
       api_version: os.environ/AZURE_API_VERSION
     model_info:
+      id: azure-gpt-6-luna
       base_model: azure/gpt-6-luna
 
   # Model Router reports its selected model; do not set a fixed base_model.

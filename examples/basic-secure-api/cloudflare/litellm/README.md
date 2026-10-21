@@ -44,6 +44,8 @@ Azure `gpt-6.1-sol` and `gpt-6-luna` are enabled by default in `litellm-config.y
 
 The Azure configuration uses API version `2024-12-01-preview`. The YAML includes the two enabled GPT deployments and an optional Model Router example; copy the direct-model block for other deployments. Set `model_info.base_model` to the actual Azure model for pricing when a deployment name differs. Model Router chooses its underlying model, so its example has no fixed `base_model` or custom price.
 
+Keep each Azure entry's explicit `model_info.id` stable and unique. In this deployment, Azure entries passed standalone router initialization but disappeared from both model-list APIs and Model Management; assigning explicit IDs restored them. LiteLLM's [database reconciliation](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/proxy/proxy_server.py) removes deployments whose IDs are absent from its current config/database list. The exact source of the generated-ID mismatch was not established.
+
 References: [LiteLLM Azure OpenAI](https://docs.litellm.ai/docs/providers/azure), [Microsoft Model Router](https://learn.microsoft.com/en-us/azure/foundry/openai/concepts/model-router).
 
 ## Admin access
