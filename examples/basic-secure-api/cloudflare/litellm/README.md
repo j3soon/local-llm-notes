@@ -97,6 +97,20 @@ curl -fsS "https://$SERVER_NAME/v1/chat/completions" \
 
 The client executes returned tool calls, then sends the assistant message and `role: "tool"` result with the matching `tool_call_id` in the next request. The proxy does not execute functions. The existing vLLM deployment already enables `--enable-auto-tool-choice --tool-call-parser qwen3_xml --reasoning-parser qwen3`. These upstream parsers are required; proxy capability metadata alone cannot enable them. See [LiteLLM's vLLM integration](https://docs.litellm.ai/docs/providers/vllm) and [vLLM tool calling](https://docs.vllm.ai/en/latest/features/tool_calling/).
 
+## Security scan
+
+From this directory, after registering the application key:
+
+```sh
+./scripts/basic_security_scan.sh
+# Optional environment file and model (default: .env and azure/gpt-6-luna):
+./scripts/basic_security_scan.sh .env unsloth/Qwen3.8-27B-NVFP4
+```
+
+The scanner follows the existing security script's PASS/FAIL style and exits on the first failure. It loads `.env` automatically and requires `curl`, `jq`, `openssl`, and `timeout`. Each run makes two small inference requests using `APP_API_KEY`, so provider charges may apply. It checks HTTP denial or a same-host HTTPS redirect, certificate validity, rejection of TLS 1.0/1.1, missing/invalid keys on all three public API routes, blocked UI/docs/management routes, allowed methods, authenticated model discovery, and actual chat/streaming output with consistent token usage. It also checks responses for configured API keys and obvious internal details. Successful Responses API inference and other models' capabilities are outside this basic scan.
+
+Cloudflare Tunnel does not itself enforce the public edge's HTTPS redirect or minimum TLS version. Enable [Always Use HTTPS](https://developers.cloudflare.com/ssl/edge-certificates/additional-options/always-use-https/) and set [Minimum TLS Version](https://developers.cloudflare.com/ssl/edge-certificates/additional-options/minimum-tls-version/) to **TLS 1.2** under SSL/TLS → Edge Certificates. Validation found that authentication, route blocking, and inference could all pass while the edge still accepted TLS 1.0/1.1. The scanner never sends credentials over HTTP or follows redirects. TLS checks target Cloudflare's edge; they do not inspect the Docker host firewall or prove database usage/cost persistence. Check those separately; keep the local admin binding on loopback.
+
 ## Usage, costs, and logging
 
 Qwen supports image input using OpenAI-style `image_url` content parts ([model card](https://huggingface.co/unsloth/Qwen3.8-27B-NVFP4)). Its `supports_vision` metadata advertises that capability; vLLM performs image processing. Keep the `hosted_vllm/` routing prefix in `litellm_params.model`, while clients use `unsloth/Qwen3.8-27B-NVFP4` ([provider routing](https://docs.litellm.ai/docs/providers/vllm)). Both GPT models have automatic pricing entries in LiteLLM's [cost map](https://docs.litellm.ai/docs/proxy/model_cost_map).
