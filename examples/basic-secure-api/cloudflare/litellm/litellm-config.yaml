@@ -1,0 +1,46 @@
+model_list:
+  - model_name: gpt-6.1-sol
+    litellm_params:
+      model: openai/gpt-6.1-sol
+      api_key: os.environ/OPENAI_API_KEY
+    # Keep the upstream model name so LiteLLM can use its OpenAI cost map,
+    # including cached input and reasoning/output token pricing.
+
+  - model_name: gpt-6-luna
+    litellm_params:
+      model: openai/gpt-6-luna
+      api_key: os.environ/OPENAI_API_KEY
+
+  - model_name: unsloth/Qwen3.8-27B-NVFP4
+    litellm_params:
+      model: hosted_vllm/unsloth/Qwen3.8-27B-NVFP4
+      api_base: os.environ/VLLM_API_BASE
+      api_key: os.environ/VLLM_API_KEY
+    model_info:
+      mode: chat
+      supports_function_calling: true
+      supports_reasoning: true
+      supports_vision: true
+      # USD per token. Zero means no provider fee, not zero hardware cost.
+      # Set numeric rates here to allocate self-hosted inference costs.
+      input_cost_per_token: 0.0
+      output_cost_per_token: 0.0
+      cache_read_input_token_cost: 0.0
+
+litellm_settings:
+  json_logs: true
+  turn_off_message_logging: false
+  # Reject unsupported parameters instead of silently removing them.
+  drop_params: false
+
+router_settings:
+  # Avoid automatically repeating a billable request after an upstream failure.
+  num_retries: 0
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
+  disable_spend_logs: false
+  store_prompts_in_spend_logs: true
+  # Leave always_include_stream_usage unset: v1.106.2 requests upstream usage
+  # for streamed chat, even if the client omits it, without changing non-streams.

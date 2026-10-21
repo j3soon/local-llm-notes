@@ -415,3 +415,5 @@ curl http://$IP:30000/v1/chat/completions \
 ### API (with Authentication and HTTPS)
 
 See [`examples/basic-secure-api`](./examples/basic-secure-api) for Docker Compose examples with NGINX, HTTPS, API-key enforcement, and Cloudflare Tunnel support for both llama.cpp and vLLM. For llama.cpp, set `LLAMA_CPP_IMAGE` for your platform.
+
+For a standalone LiteLLM gateway unifying OpenAI GPT and the existing Qwen3.8 27B vLLM API with model aliases and usage/cost tracking, see the [LiteLLM setup notes](./examples/basic-secure-api/cloudflare/litellm/README.md).
