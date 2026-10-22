@@ -51,6 +51,6 @@ services:
     command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:?Set CLOUDFLARE_TUNNEL_TOKEN in .env}
 
 # The model server stays private; only authenticated model discovery and chat
-# completions are reachable through NGINX and Cloudflare Tunnel.
+# completions/Responses are reachable through NGINX and Cloudflare Tunnel.
 # For a separate LiteLLM gateway routing GPT and this Qwen API, see
 # litellm/compose.yaml and litellm/README.md. Start it as its own Compose project.

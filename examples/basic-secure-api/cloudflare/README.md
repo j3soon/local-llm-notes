@@ -8,7 +8,7 @@ This directory contains the recommended deployment using Cloudflare Tunnel for s
 2. Add a public hostname for your desired domain (e.g., `llm.example.com`).
 3. Point the tunnel service to `http://nginx:80` (the `nginx` Compose service, reachable from the `cloudflared` container over the Compose network, not `localhost`, since they run in separate containers).
 4. Copy `.env.example` to `.env` and set `CLOUDFLARE_TUNNEL_TOKEN`.
-5. Enable [Always Use HTTPS](https://developers.cloudflare.com/ssl/edge-certificates/additional-options/always-use-https/) in Cloudflare dashboard.
+5. Enable [Always Use HTTPS](https://developers.cloudflare.com/ssl/edge-certificates/additional-options/always-use-https/) and set [Minimum TLS Version](https://developers.cloudflare.com/ssl/edge-certificates/additional-options/minimum-tls-version/) to **TLS 1.2** in Cloudflare.
 
 ## Setup
 
@@ -69,6 +69,12 @@ curl https://$SERVER_NAME/v1/chat/completions \
 
 For vLLM, also include `"model": "unsloth/Qwen3.8-27B-NVFP4"` in the request body.
 
+vLLM supports authenticated streaming and non-streaming requests through the [Responses API](https://docs.vllm.ai/en/latest/serving/online_serving/openai_compatible_server/#responses-api) at `POST /v1/responses`. Apply NGINX configuration changes without restarting the model:
+
+```sh
+docker compose -f compose.vllm.yaml restart nginx
+```
+
 Local llama.cpp UI from the Docker host (bypasses `nginx`, so no API key needed):
 
 ```sh
@@ -86,8 +92,6 @@ docker compose -f compose.local.yaml up -d
 ## Optional OpenCode and Pi Setup
 
 The setup scripts require Bash and `jq`. They validate and atomically update existing configuration, preserve unrelated settings and providers, and make the configured model the default. Each script asks for a provider ID; accepting the default creates or updates `llm-remote` or `llm-local`, while a custom ID creates or updates only that exact entry.
-
-> **Breaking change:** the default IDs were changed from `llamacpp-remote` and `llamacpp-local` to `llm-remote` and `llm-local`. Existing `llamacpp-*` providers are preserved and are not migrated automatically.
 
 ### Remote or Published Endpoint
 
@@ -155,17 +159,26 @@ References: [NVIDIA Nemotron 3 Ultra API](https://build.nvidia.com/nvidia/nemotr
 
 ## Security Scan
 
-Use `../scripts/basic_security_scan.sh` to verify the exposed surface and auth behavior. Unlike the certbot call, no port is passed, since Cloudflare Tunnel serves on the standard HTTPS port. The TLS and certificate checks then target Cloudflare's edge instead of our own origin, which verifies your Cloudflare-side TLS configuration (the "Always Use HTTPS" setting and Universal SSL certificate) rather than anything in this repo.
+For the vLLM deployment, run from this directory:
 
 ```sh
-SERVER_NAME='<value from .env>'
-LLM_API_KEY='<value from .env>'
+./scripts/basic_security_scan.sh
+# Optional environment file and model:
+./scripts/basic_security_scan.sh .env unsloth/Qwen3.8-27B-NVFP4
+```
+
+The scan loads `.env` automatically and requires `curl`, `jq`, `openssl`, and `timeout`. It checks HTTPS/TLS, missing and invalid keys, blocked routes and methods, model discovery, and four small inference requests: streaming and non-streaming Chat Completions and Responses, with generated text and consistent token usage. It exits on the first failure and checks responses for configured secrets and obvious internal details. TLS checks cover Cloudflare's public edge; inspect the Docker host firewall separately. vLLM reports token usage; USD costs are calculated by LiteLLM.
+
+For the llama.cpp deployment, use the shared scan:
+
+```sh
+. ./.env
 ../scripts/basic_security_scan.sh "$SERVER_NAME" "$LLM_API_KEY"
 ```
 
 The model server stays private on the Compose network. The llama.cpp stack additionally has a localhost-only UI binding on `127.0.0.1:38000`; the vLLM stack publishes no ports. Cloudflare Tunnel, forwarding into `nginx`, is the only remotely reachable entrypoint.
 
-Remote clients can access only `/v1/models` and `/v1/chat/completions`, gated by `Authorization: Bearer $LLM_API_KEY`; the vLLM stack also validates the same key at the model server. Plain HTTP is redirected to HTTPS by Cloudflare's "Always Use HTTPS" setting. The llama.cpp UI remains available without authentication from localhost via `127.0.0.1:38000`; remove that mapping from [`compose.yaml`](./compose.yaml) to disable it.
+Remote clients can access only `GET /v1/models`, `POST /v1/chat/completions`, and `POST /v1/responses`, gated by `Authorization: Bearer $LLM_API_KEY`; the vLLM stack also validates the same key at the model server. Plain HTTP is redirected to HTTPS by Cloudflare's "Always Use HTTPS" setting. The llama.cpp UI remains available without authentication from localhost via `127.0.0.1:38000`; remove that mapping from [`compose.yaml`](./compose.yaml) to disable it.
 
 ## LiteLLM Proxy
 
