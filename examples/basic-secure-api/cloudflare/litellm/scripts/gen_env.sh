@@ -54,7 +54,7 @@ openai_api_key="${OPENAI_API_KEY-$(prompt 'OPENAI_API_KEY (optional; direct Open
 azure_api_key="${AZURE_API_KEY-$(prompt 'AZURE_API_KEY (Azure models enabled in YAML; comment them out if empty)' '')}"
 azure_api_base="${AZURE_API_BASE-}"
 if [ -n "$azure_api_key" ]; then
-    azure_api_base="${AZURE_API_BASE:-$(prompt AZURE_API_BASE https://your-resource.openai.azure.com/)}"
+    azure_api_base="${AZURE_API_BASE:-$(prompt AZURE_API_BASE https://your-resource.openai.azure.com)}"
 fi
 vllm_api_base="${VLLM_API_BASE:-$(prompt VLLM_API_BASE https://llm.example.com/v1)}"
 vllm_api_key="${VLLM_API_KEY-$(prompt 'VLLM_API_KEY (optional; comment out Qwen in YAML if empty)' '')}"
@@ -99,7 +99,8 @@ LITELLM_PORT=${LITELLM_PORT-14000}
 OPENAI_API_KEY=$openai_api_key
 AZURE_API_KEY=$azure_api_key
 AZURE_API_BASE=$azure_api_base
-AZURE_API_VERSION=${AZURE_API_VERSION:-2024-12-01-preview}
+# LiteLLM selects Azure's current /openai/v1/ API without a dated api-version.
+AZURE_API_VERSION=${AZURE_API_VERSION:-v1}
 VLLM_API_BASE=$vllm_api_base
 VLLM_API_KEY=$vllm_api_key
 EOF

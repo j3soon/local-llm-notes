@@ -38,15 +38,17 @@ Before starting, fill the keys for the models you intend to use. For each unused
 
 Azure `gpt-6.1-sol` and `gpt-6-luna` are enabled by default in `litellm-config.yaml`:
 
-1. Set `AZURE_API_KEY`, `AZURE_API_BASE` (the resource root, e.g. `https://your-resource.openai.azure.com/`), and `AZURE_API_VERSION` in `.env`.
+1. Set `AZURE_API_KEY`, `AZURE_API_BASE` (the resource root without a trailing slash, e.g. `https://your-resource.openai.azure.com`), and `AZURE_API_VERSION=v1` in `.env`.
 2. Confirm that the `gpt-6.1-sol` and `gpt-6-luna` deployments exist in your Azure resource. Model Router remains commented out; uncomment its block and matching permission only if you want it.
 3. Start the stack, then register the application key as shown in Setup above. Clients request `azure/gpt-6.1-sol` or `azure/gpt-6-luna`, keeping Azure routes separate from direct OpenAI.
 
-The Azure configuration uses API version `2024-12-01-preview`. The YAML includes the two enabled GPT deployments and an optional Model Router example; copy the direct-model block for other deployments. Set `model_info.base_model` to the actual Azure model for pricing when a deployment name differs. Model Router chooses its underlying model, so its example has no fixed `base_model` or custom price.
+The Azure configuration uses the current **v1 API**. LiteLLM's `api_version: v1` selector uses `/openai/v1/` without a dated `api-version` query parameter. Keep `AZURE_API_BASE` at the resource root; LiteLLM adds the API path. For an existing `.env`, set `AZURE_API_VERSION=v1` explicitly because the generator preserves saved values, then run `docker compose up -d` to recreate LiteLLM with the updated environment.
+
+The YAML includes the two enabled GPT deployments and an optional Model Router example; copy the direct-model block for other deployments. Set `model_info.base_model` to the actual Azure model for pricing when a deployment name differs. Model Router chooses its underlying model, so its example has no fixed `base_model` or custom price.
 
 Keep each Azure entry's explicit `model_info.id` stable and unique. In this deployment, Azure entries passed standalone router initialization but disappeared from both model-list APIs and Model Management; assigning explicit IDs restored them. LiteLLM's [database reconciliation](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/proxy/proxy_server.py) removes deployments whose IDs are absent from its current config/database list. The exact source of the generated-ID mismatch was not established.
 
-References: [LiteLLM Azure OpenAI](https://docs.litellm.ai/docs/providers/azure), [Microsoft Model Router](https://learn.microsoft.com/en-us/azure/foundry/openai/concepts/model-router).
+References: [LiteLLM Azure OpenAI](https://docs.litellm.ai/docs/providers/azure), [Azure API lifecycle and changelog](https://learn.microsoft.com/en-us/azure/foundry/openai/api-version-lifecycle?tabs=python#api-version-changelog), [Microsoft Model Router](https://learn.microsoft.com/en-us/azure/foundry/openai/concepts/model-router).
 
 ## Admin access
 

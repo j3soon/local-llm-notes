@@ -14,9 +14,11 @@ model_list:
   #     api_key: os.environ/OPENAI_API_KEY
 
   # Azure deployments: set AZURE_API_KEY, AZURE_API_BASE, and AZURE_API_VERSION.
+  # AZURE_API_VERSION=v1 selects /openai/v1/ from the resource-root api_base.
   # Deployment names must match those in your Azure resource.
   # Explicit IDs keep deployment identity independent of connection parameters.
   # Reference: https://docs.litellm.ai/docs/providers/azure
+  # API lifecycle: https://learn.microsoft.com/en-us/azure/foundry/openai/api-version-lifecycle?tabs=python#api-version-changelog
   - model_name: azure/gpt-6.1-sol
     litellm_params:
       model: azure/gpt-6.1-sol
