@@ -61,7 +61,7 @@ LiteLLM authenticates bearer tokens, including virtual keys. Model metadata is f
 
 ## Key limits
 
-`default_key_generate_params` sets the `app` key's model permissions, **$20 per 30 days**, and **60 requests per minute**. Four users sharing this key share those limits. Each additional key receives its own budget and rate limit. Qwen's configured cost is zero, so the dollar budget does not constrain it.
+`default_key_generate_params` sets the `app` key's model permissions, **$20 per 30 days**, and **60 requests per minute**. Four users sharing this key share those limits. Each additional key receives its own budget and rate limit. Qwen's nominal cost is negligible relative to the dollar budget.
 
 Each model API call counts toward RPM; an agent run can make several calls. Streaming chunks do not count separately. RPM limits frequency; `max_parallel_requests` separately limits simultaneous requests ([rate limits](https://docs.litellm.ai/docs/proxy/users)).
 
@@ -98,10 +98,10 @@ Qwen supports image input through `image_url` content parts ([model card](https:
 
 - **Non-streaming:** tokens are in JSON `usage`; total USD cost is in the `x-litellm-response-cost` header rather than the message body.
 - **Streaming:** `include_cost_in_streaming_usage` enables final `usage.cost`, including inside Responses' `response.completed` event. Chat clients must request `stream_options.include_usage: true`. Initial streaming cost headers may be placeholders; read the final usage event.
-- **Pricing:** GPT uses LiteLLM's [cost map](https://docs.litellm.ai/docs/proxy/model_cost_map). Qwen has explicit zero input/output/cache-read rates; edit these USD-per-token rates for internal chargeback ([custom pricing](https://docs.litellm.ai/docs/proxy/custom_pricing)). Provider cost excludes GPU operating costs.
+- **Pricing:** GPT uses LiteLLM's [cost map](https://docs.litellm.ai/docs/proxy/model_cost_map). Qwen uses nominal input/output/cache-read rates of `5.0e-324` USD per token to enable native cost reporting; edit these rates for internal chargeback ([custom pricing](https://docs.litellm.ai/docs/proxy/custom_pricing)). These rates do not measure GPU operating costs.
 - **Breakdown:** total is uncached input + cached input + output. Reasoning cost is already part of output and must not be added again. Use upstream token counts and final streaming usage; interrupted streams may lack a complete receipt. Keep `always_include_stream_usage` unset and do not place `stream_options` in model defaults.
 
-**LiteLLM 1.106.2 limitation:** Qwen's calculated zero may be omitted from the non-streaming total-cost header and final streaming `usage.cost`, while token usage and zero component costs remain available. Luna's positive costs are reported. Treat a missing cost as unavailable, not as zero. This deployment uses LiteLLM's built-in reporting without custom callbacks. See the pinned [header implementation](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/proxy/common_request_processing.py) and [stream builder](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/main.py).
+**LiteLLM 1.106.2 limitation:** calculated zeros may be omitted from the non-streaming total-cost header and final streaming `usage.cost`. Qwen's nominal positive rates allow both fields to be reported on Chat and Responses APIs without custom callbacks. UI rounding and database persistence at this precision have not been verified. Treat a missing cost as unavailable, not as zero. See the pinned [header implementation](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/proxy/common_request_processing.py) and [stream builder](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/main.py).
 
 Postgres stores per-request tokens, USD spend, prompts, and responses in its named volume. Inspect request details in the local UI or query logs:
 
@@ -125,4 +125,4 @@ After registering the key, run:
 ./scripts/basic_security_scan.sh .env unsloth/Qwen3.8-27B-NVFP4
 ```
 
-Requires `curl`, `jq`, `openssl`, and `timeout`; loads `.env` automatically. It checks HTTPS/TLS, authentication, blocked routes/methods, model discovery/metadata, and two small Chat Completions requests with token usage and streaming cost. Provider charges may apply. Qwen currently fails the streaming-cost assertion because of the LiteLLM limitation above; that failure alone does not indicate an authentication or inference problem. The scan does not verify database persistence, the host firewall, or successful Responses inference.
+Requires `curl`, `jq`, `openssl`, and `timeout`; loads `.env` automatically. It checks HTTPS/TLS, authentication, blocked routes/methods, model discovery/metadata, and two small Chat Completions requests with token usage and streaming cost. Provider charges may apply. Setting Qwen's rates to zero can cause the streaming-cost assertion to fail because of the LiteLLM limitation above. The scan does not verify database persistence, the host firewall, or successful Responses inference.
