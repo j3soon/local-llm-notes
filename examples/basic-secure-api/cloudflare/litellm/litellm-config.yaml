@@ -22,22 +22,70 @@ model_list:
   - model_name: azure/gpt-6.1-sol
     litellm_params:
       model: azure/gpt-6.1-sol
+      reasoning_effort: low
       api_key: os.environ/AZURE_API_KEY
       api_base: os.environ/AZURE_API_BASE
       api_version: os.environ/AZURE_API_VERSION
     model_info:
       id: azure-gpt-6-1-sol
       base_model: azure/gpt-6.1-sol
+      chat_reasoning_options:
+        - id: low
+          label: Low
+          parameters:
+            reasoning_effort: low
+        - id: medium
+          label: Medium
+          parameters:
+            reasoning_effort: medium
+        - id: high
+          label: High
+          parameters:
+            reasoning_effort: high
+        - id: xhigh
+          label: XHigh
+          parameters:
+            reasoning_effort: xhigh
+        - id: max
+          label: Max
+          parameters:
+            reasoning_effort: max
 
   - model_name: azure/gpt-6-luna
     litellm_params:
       model: azure/gpt-6-luna
+      reasoning_effort: low
       api_key: os.environ/AZURE_API_KEY
       api_base: os.environ/AZURE_API_BASE
       api_version: os.environ/AZURE_API_VERSION
     model_info:
       id: azure-gpt-6-luna
       base_model: azure/gpt-6-luna
+      chat_reasoning_options:
+        - id: none
+          label: None
+          parameters:
+            reasoning_effort: none
+        - id: low
+          label: Low
+          parameters:
+            reasoning_effort: low
+        - id: medium
+          label: Medium
+          parameters:
+            reasoning_effort: medium
+        - id: high
+          label: High
+          parameters:
+            reasoning_effort: high
+        - id: xhigh
+          label: XHigh
+          parameters:
+            reasoning_effort: xhigh
+        - id: max
+          label: Max
+          parameters:
+            reasoning_effort: max
 
   # Model Router reports its selected model; do not set a fixed base_model.
   # - model_name: azure/model-router
@@ -52,11 +100,25 @@ model_list:
       model: hosted_vllm/unsloth/Qwen3.8-27B-NVFP4
       api_base: os.environ/VLLM_API_BASE
       api_key: os.environ/VLLM_API_KEY
+      chat_template_kwargs:
+        enable_thinking: true
     model_info:
       mode: chat
       supports_function_calling: true
       supports_reasoning: true
       supports_vision: true
+      # Advertise both modes. The deployment default enables thinking.
+      chat_reasoning_options:
+        - id: "off"
+          label: "Off"
+          parameters:
+            chat_template_kwargs:
+              enable_thinking: false
+        - id: "on"
+          label: "On"
+          parameters:
+            chat_template_kwargs:
+              enable_thinking: true
       # USD per token. Zero means no provider fee, not zero hardware cost.
       # Set numeric rates here to allocate self-hosted inference costs.
       input_cost_per_token: 0.0
@@ -65,6 +127,9 @@ model_list:
 
 litellm_settings:
   json_logs: true
+  # Include usage.cost in streaming usage chunks, including zero-cost models.
+  # https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/proxy/common_request_processing.py
+  include_cost_in_streaming_usage: true
   turn_off_message_logging: false
   # Reject unsupported parameters instead of silently removing them.
   drop_params: false

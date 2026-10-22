@@ -96,14 +96,16 @@ check_http_denied
 check_tls
 
 for auth in missing invalid; do
-    request GET /v1/models "$auth"
-    [ "$code" = 401 ] || fail "$auth key on /v1/models: expected 401, got $code"
+    for path in /v1/models /v1/model/info; do
+        request GET "$path" "$auth"
+        [ "$code" = 401 ] || fail "$auth key on $path: expected 401, got $code"
+    done
     request POST /v1/chat/completions "$auth" -H 'Content-Type: application/json' -d "$chat"
     [ "$code" = 401 ] || fail "$auth key on chat: expected 401, got $code"
     request POST /v1/responses "$auth" -H 'Content-Type: application/json' -d "$responses"
     [ "$code" = 401 ] || fail "$auth key on responses: expected 401, got $code"
 done
-pass "model discovery, chat, and responses reject missing and invalid keys"
+pass "model discovery, metadata, chat, and responses reject missing and invalid keys"
 
 for path in / /ui /ui/ /login /docs /openapi.json /model/info /v2/model/info /key/list /spend/logs/v2 /health/readiness /v1/embeddings; do
     request GET "$path" valid
@@ -116,8 +118,10 @@ for path in /key/generate /key/update; do
 done
 pass "public UI, docs, management, spend logs, and unapproved routes are blocked"
 
-request POST /v1/models valid -H 'Content-Type: application/json' -d '{}'
-[ "$code" = 403 ] || fail "POST /v1/models must be blocked, got $code"
+for path in /v1/models /v1/model/info; do
+    request POST "$path" valid -H 'Content-Type: application/json' -d '{}'
+    [ "$code" = 403 ] || fail "POST $path must be blocked, got $code"
+done
 for path in /v1/chat/completions /v1/responses; do
     request GET "$path" valid
     [ "$code" = 403 ] || fail "GET $path must be blocked, got $code"
@@ -129,6 +133,12 @@ request GET /v1/models valid
 jq -e --arg model "$model" '.object == "list" and any(.data[]; .id == $model)' "$tmp_dir/body" >/dev/null || \
     fail "selected model is absent from authenticated discovery: $model"
 pass "application key can discover the selected model"
+
+request GET /v1/model/info valid
+[ "$code" = 200 ] || fail "authenticated model metadata: expected 200, got $code"
+jq -e --arg model "$model" 'any(.data[]; .model_name == $model and (.model_info | type == "object"))' "$tmp_dir/body" >/dev/null || \
+    fail "selected model is absent from authenticated metadata: $model"
+pass "application key can read model metadata without exposed API keys"
 
 request POST /v1/chat/completions valid -H 'Content-Type: application/json' -d "$chat"
 [ "$code" = 200 ] || fail "authenticated inference: expected 200, got $code (check local proxy logs)"
@@ -149,7 +159,8 @@ sed -n 's/^data: //p' "$tmp_dir/stream" | sed '/^\[DONE\]$/d' > "$tmp_dir/chunks
 jq -se 'any(.[]; .object == "chat.completion.chunk" and
     any(.choices[]?; any([.delta.content, .delta.reasoning_content][]; type == "string" and length > 0))) and
     any(.[]; .usage.prompt_tokens > 0 and .usage.completion_tokens > 0 and
-        .usage.total_tokens == (.usage.prompt_tokens + .usage.completion_tokens))' "$tmp_dir/chunks" >/dev/null || \
-    fail "stream must contain generated content and consistent nonzero token usage"
-pass "authenticated streaming returns content, final usage, and [DONE]"
+        .usage.total_tokens == (.usage.prompt_tokens + .usage.completion_tokens) and
+        (.usage.cost | type == "number" and . >= 0))' "$tmp_dir/chunks" >/dev/null || \
+    fail "stream must contain generated content, consistent nonzero token usage, and numeric cost (zero is valid)"
+pass "authenticated streaming returns content, final usage with cost, and [DONE]"
 pass "basic public security scan completed (database cost persistence and host firewall require separate checks)"
