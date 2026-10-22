@@ -141,7 +141,7 @@ model_list:
 
 litellm_settings:
   json_logs: true
-  # Include usage.cost in streaming usage chunks, including zero-cost models.
+  # Request usage.cost in streaming usage chunks; v1.106.2 may omit zero costs.
   # https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/proxy/common_request_processing.py
   include_cost_in_streaming_usage: true
   turn_off_message_logging: false
