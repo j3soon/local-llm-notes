@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate Qwen load balancing, failover, and recovery against mock upstreams.
+"""Validate Qwen load balancing, session affinity, failover, and recovery against mock upstreams.
 
 Runs the real litellm-config.yaml with LiteLLM 1.106.2 and no database:
 
@@ -92,9 +92,10 @@ class Upstream:
         self.server.server_close()
 
 
-def call(base, path, body=None):
+def call(base, path, body=None, headers=None):
     request = urllib.request.Request(base + path, json.dumps(body).encode() if body else None,
-                                     {"Authorization": f"Bearer {MASTER_KEY}", "Content-Type": "application/json"})
+                                     {"Authorization": f"Bearer {MASTER_KEY}", "Content-Type": "application/json",
+                                      **(headers or {})})
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
             return response.status, response.headers, json.load(response)
@@ -104,11 +105,12 @@ def call(base, path, body=None):
         return 0, {}, None
 
 
-def tally(base, count):
+def tally(base, count, session=None):
     served = Counter()
     for _ in range(count):
         status, headers, _ = call(base, "/v1/chat/completions",
-                                  {"model": MODEL, "messages": [{"role": "user", "content": "hi"}]})
+                                  {"model": MODEL, "messages": [{"role": "user", "content": "hi"}]},
+                                  {"x-session-id": session} if session else None)
         served[f"{status}:{headers.get('x-litellm-model-id')}"] += 1
     return served
 
@@ -185,6 +187,18 @@ def run(base, primary, secondary):
         fail(f"expected about 50/50 across healthy deployments, got {dict(served)}")
     passed(f"healthy split {dict(served)}")
 
+    pins = {}
+    for _ in range(16):
+        session = str(uuid.uuid4())
+        served = tally(base, 6, session)
+        if len(served) != 1 or not next(iter(served)).startswith("200:"):
+            fail(f"session {session} was not pinned to one deployment: {dict(served)}")
+        pins[session] = next(iter(served)).removeprefix("200:")
+    if set(pins.values()) != {"qwen-primary", "qwen-secondary"}:
+        fail(f"new sessions did not spread across deployments: {Counter(pins.values())}")
+    secondary_session = next(s for s, model_id in pins.items() if model_id == "qwen-secondary")
+    passed(f"16 sessions x 6 requests each stayed on one deployment; {dict(Counter(pins.values()))}")
+
     secondary.stop()
     elapsed = wait_for("secondary marked unhealthy", lambda: health(base) == ({"qwen-primary"}, {"qwen-secondary"}),
                        30 + 15 + 15)
@@ -192,6 +206,10 @@ def run(base, primary, secondary):
     if served != {"200:qwen-primary": 50}:
         fail(f"offline secondary still receives traffic: {dict(served)}")
     passed(f"offline secondary excluded {elapsed:.0f}s after shutdown; {dict(served)}")
+    served = tally(base, 6, secondary_session)
+    if served != {"200:qwen-primary": 6}:
+        fail(f"session pinned to the offline secondary did not fall back: {dict(served)}")
+    passed("session pinned to the offline secondary fell back to the primary")
 
     secondary.start()
     elapsed = wait_for("secondary restored", both_healthy, 30 + 15 + 15)
@@ -199,6 +217,10 @@ def run(base, primary, secondary):
     if set(served) != {"200:qwen-primary", "200:qwen-secondary"}:
         fail(f"restored secondary receives no traffic: {dict(served)}")
     passed(f"secondary restored {elapsed:.0f}s after restart; {dict(served)}")
+    served = tally(base, 6, secondary_session)
+    if served != {"200:qwen-secondary": 6}:
+        fail(f"session did not return to its restored deployment: {dict(served)}")
+    passed("pinned session returned to the restored secondary")
 
 
 if __name__ == "__main__":

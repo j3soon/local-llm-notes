@@ -183,6 +183,11 @@ router_settings:
   num_retries: 0
   # Default strategy: random choice among healthy deployments in a model group.
   routing_strategy: simple-shuffle
+  # Keep requests with a session ID (such as an x-session-id header) on one
+  # deployment for an hour, reusing its vLLM prefix cache. Requests without one
+  # stay random; a pin to an unhealthy deployment falls back to a healthy one.
+  optional_pre_call_checks:
+    - session_affinity
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY

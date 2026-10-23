@@ -17,7 +17,8 @@ Re-run the automated part with [tests/qwen_failover_test.py](../tests/qwen_failo
 | Hung server | A server that accepted connections but never replied was marked unhealthy after 14 seconds (`health_check_timeout: 15`). |
 | Recovery | Restored after the next passing probe (21–29 seconds) with no failed requests. |
 | Offline or unset at startup | Secondary marked unhealthy by the first probe; all traffic went to the primary. |
-| Mutation | With `enable_health_check_routing: false`, the test failed: 24 of 50 requests returned HTTP 500 after the secondary stopped. |
+| Session affinity | 16 sessions x 6 requests with `x-session-id` each stayed on one deployment (5 primary, 11 secondary). A session pinned to the secondary fell back to the primary while the secondary was offline and returned after recovery. `x-litellm-session-id`, `x-session-id`, `x-claude-code-session-id`, and `metadata.session_id` pinned 8 of 8 sessions; `litellm_session_id` in the body and no session ID pinned none. |
+| Mutation | With `enable_health_check_routing: false`, the test failed: 24 of 50 requests returned HTTP 500 after the secondary stopped. Without `session_affinity`, it failed when one session was served by both deployments. |
 
 ## Admin UI data
 
@@ -28,3 +29,19 @@ A second run used a temporary Postgres database with `STORE_MODEL_IN_DB=True` an
 - Each probe adds a spend-log row under `litellm-internal-health-check` with an empty model ID; `exclude_internal_health_checks=true` (UI: **Hide Health Checks**) removes them.
 - `/v1/model/info` with a virtual key returned both deployments without API keys. As before, it includes each deployment's `api_base`.
 - `/spend/logs/v2` requires `start_date` and `end_date` in 1.106.2.
+
+## Live prefix-cache reuse
+
+Measured on 2026-10-23 through `litellm.j3soon.com` with 8-turn conversations of 4.6k to 11.7k prompt tokens and thinking disabled. Both vLLM servers run `--enable-prefix-caching` and report `cached_tokens`.
+
+| Routing | Cached share of prompt tokens, turns 2–8 |
+| --- | --- |
+| Random through LiteLLM, before session affinity (2 runs) | 48%, 48% |
+| Always the primary, called directly (2 runs) | 61%, 61% |
+
+Turns served by the other server reused only what that server had cached for the conversation. Hits arrived in 1,600-token steps, so even fully sticky turns reuse less than the whole previous prompt. Before session affinity was deployed, [tests/qwen_cache_affinity_test.py](../tests/qwen_cache_affinity_test.py) failed because one session was served by both deployments. After deployment, with both servers healthy, it passed:
+
+- 6 sessions × 4 requests each stayed on one deployment (4 sessions on the primary, 2 on the secondary).
+- A 6-turn conversation with `x-session-id` stayed on `qwen-secondary` and reused cache on every later turn: 55% of prompt tokens on turns 2–6.
+- The same conversation without a session ID switched deployments: turn 2 reused nothing and turns 2–6 reused 46%.
+

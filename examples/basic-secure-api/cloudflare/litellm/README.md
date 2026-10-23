@@ -48,6 +48,8 @@ Every 30 seconds, LiteLLM probes only the Qwen group (`background_health_check_m
 
 Failover is not instant. With `num_retries: 0`, requests routed to the secondary after it goes offline fail with HTTP 500 until the next probe excludes it, typically within 30 seconds plus the probe timeout. LiteLLM's default 5-second failure cooldown may shorten this window. A restored server rejoins after its next passing probe.
 
+**Session affinity** keeps a conversation on one server so vLLM reuses its prefix cache instead of filling both caches. With `session_affinity`, requests carrying a session ID are pinned to the deployment that served the session first, for one hour (`deployment_affinity_ttl_seconds`); new sessions still split about 50/50. Send `x-session-id`, `x-litellm-session-id`, or a vendor header such as `x-claude-code-session-id`, or put `session_id` in the request `metadata`; the body field `litellm_session_id` is not used. Requests without a session ID stay random. A pin to an unhealthy server falls back to a healthy one and returns once its server recovers. Pins live in LiteLLM's memory and reset on restart. `usage.prompt_tokens_details.cached_tokens` reports reuse. In live 8-turn tests, conversations sticking to one server reused 61% of prompt tokens on later turns, compared with 48% under random routing. Do not enable `deployment_affinity`: it pins by API key, and all clients share one key.
+
 Identify each deployment by ID in the local Admin UI:
 
 - **Health Checks:** lists `qwen-primary` and `qwen-secondary` separately. Stored status changes immediately; unchanged results are saved hourly.
@@ -59,7 +61,7 @@ curl -fsS http://127.0.0.1:14000/health/latest \
   -H "Authorization: Bearer $LITELLM_MASTER_KEY"
 ```
 
-See [health checks](https://docs.litellm.ai/docs/proxy/health), [load balancing](https://docs.litellm.ai/docs/proxy/load_balancing), and the pinned [health loop](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/proxy/proxy_server.py) and [router filter](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/router.py). [tests/qwen_failover_test.py](./tests/qwen_failover_test.py) checks the split, failover, and recovery against local mock servers; results are in [docs/qwen-load-balancing-validation.md](./docs/qwen-load-balancing-validation.md).
+See [health checks](https://docs.litellm.ai/docs/proxy/health), [load balancing](https://docs.litellm.ai/docs/proxy/load_balancing), and the pinned [health loop](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/proxy/proxy_server.py), [router filter](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/router.py), and [session affinity](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/router_utils/pre_call_checks/deployment_affinity_check.py). [tests/qwen_failover_test.py](./tests/qwen_failover_test.py) checks the split, session pinning, failover, and recovery against local mock servers. After deploying, `python3 tests/qwen_cache_affinity_test.py` confirms pinning and cache reuse through the public endpoint with small Qwen requests. Results are in [docs/qwen-load-balancing-validation.md](./docs/qwen-load-balancing-validation.md).
 
 ## Admin access and security
 
