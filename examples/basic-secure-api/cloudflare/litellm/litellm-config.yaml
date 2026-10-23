@@ -95,16 +95,23 @@ model_list:
   #     api_base: os.environ/AZURE_API_BASE
   #     api_version: os.environ/AZURE_API_VERSION
 
+  # Two vLLM servers share this model group: the always-on primary below and an
+  # occasionally powered-on secondary. Simple-shuffle splits traffic about 50/50
+  # while both pass background health checks. Explicit IDs identify each server
+  # in health checks, logs, and the x-litellm-model-id response header.
   - model_name: unsloth/Qwen3.8-27B-NVFP4
-    litellm_params:
+    litellm_params: &qwen_params
       model: hosted_vllm/unsloth/Qwen3.8-27B-NVFP4
       api_base: os.environ/VLLM_API_BASE
       api_key: os.environ/VLLM_API_KEY
       chat_template_kwargs:
         enable_thinking: true
         reasoning_effort: xhigh
-    model_info:
+    model_info: &qwen_info
+      id: qwen-primary
       mode: chat
+      # Bound each probe so an unreachable server cannot stretch the 30s cycle.
+      health_check_timeout: 15
       supports_function_calling: true
       supports_reasoning: true
       supports_vision: true
@@ -139,6 +146,17 @@ model_list:
       output_cost_per_token: 5.0e-324
       cache_read_input_token_cost: 5.0e-324
 
+  # Secondary: inherits the primary's settings via YAML merge keys and overrides
+  # only its endpoint, key, and ID. Comment out this block if it is not configured.
+  - model_name: unsloth/Qwen3.8-27B-NVFP4
+    litellm_params:
+      <<: *qwen_params
+      api_base: os.environ/VLLM_API_BASE_SECONDARY
+      api_key: os.environ/VLLM_API_KEY_SECONDARY
+    model_info:
+      <<: *qwen_info
+      id: qwen-secondary
+
 litellm_settings:
   json_logs: true
   # Request usage.cost in streaming usage chunks; v1.106.2 may omit zero costs.
@@ -163,6 +181,8 @@ litellm_settings:
 router_settings:
   # Avoid automatically repeating a billable request after an upstream failure.
   num_retries: 0
+  # Default strategy: random choice among healthy deployments in a model group.
+  routing_strategy: simple-shuffle
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
@@ -171,3 +191,13 @@ general_settings:
   store_prompts_in_spend_logs: true
   # Leave always_include_stream_usage unset: v1.106.2 requests upstream usage
   # for streamed chat, even if the client omits it, without changing non-streams.
+
+  # Probe only the Qwen group every 30s; Azure is never probed in the background.
+  # Health-check routing skips deployments whose latest probe failed and restores
+  # them after a passing probe. If every Qwen deployment fails, none is skipped.
+  # https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/proxy/proxy_server.py
+  background_health_checks: true
+  health_check_interval: 30
+  background_health_check_model_groups:
+    - unsloth/Qwen3.8-27B-NVFP4
+  enable_health_check_routing: true

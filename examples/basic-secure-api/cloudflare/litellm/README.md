@@ -1,6 +1,6 @@
 # LiteLLM Proxy
 
-Standalone OpenAI-compatible gateway for Azure OpenAI, optional direct OpenAI, and self-hosted Qwen through vLLM. [Compose](./compose.yaml) follows the [official quickstart](https://raw.githubusercontent.com/BerriAI/litellm/main/docker/docker-compose.quickstart.yml), with LiteLLM 1.106.2, Postgres, NGINX, and Cloudflare Tunnel in the separate `local-llm-proxy` project. Keep [vLLM](../compose.vllm.yaml) running for Qwen; GPT requests work independently.
+Standalone OpenAI-compatible gateway for Azure OpenAI, optional direct OpenAI, and self-hosted Qwen load-balanced across two vLLM servers. [Compose](./compose.yaml) follows the [official quickstart](https://raw.githubusercontent.com/BerriAI/litellm/main/docker/docker-compose.quickstart.yml), with LiteLLM 1.106.2, Postgres, NGINX, and Cloudflare Tunnel in the separate `local-llm-proxy` project. Keep [vLLM](../compose.vllm.yaml) running for Qwen; GPT requests work independently.
 
 ## Setup
 
@@ -15,7 +15,7 @@ This generates `.env` with provider settings and independent master, salt, appli
 Configure providers in `.env` and [litellm-config.yaml](./litellm-config.yaml):
 
 - **Azure:** enabled by default for `azure/gpt-6.1-sol` and `azure/gpt-6-luna`. Set `AZURE_API_KEY`, `AZURE_API_BASE` to the resource root without a trailing slash, and `AZURE_API_VERSION=v1`. Azure deployment names must match `litellm_params.model`.
-- **Qwen:** set `VLLM_API_BASE` to the upstream HTTPS endpoint, such as `https://llm.example.com/v1`, and `VLLM_API_KEY` to its `LLM_API_KEY`. Keep the `hosted_vllm/` provider prefix in `litellm_params.model`; clients use the full served name `unsloth/Qwen3.8-27B-NVFP4`.
+- **Qwen:** set `VLLM_API_BASE` to the always-on upstream HTTPS endpoint, such as `https://llm.example.com/v1`, and `VLLM_API_KEY` to its `LLM_API_KEY`. Set `VLLM_API_BASE_SECONDARY` and `VLLM_API_KEY_SECONDARY` the same way for the occasionally powered-on server, or comment out its `qwen-secondary` block. Keep the `hosted_vllm/` provider prefix in `litellm_params.model`; clients use the full served name `unsloth/Qwen3.8-27B-NVFP4`.
 - **Direct OpenAI:** uncomment its model entries and key permissions, then set `OPENAI_API_KEY`.
 - **Unused providers:** comment out their complete model entries and their names in `default_key_generate_params.models`. Empty API keys do not reliably disable models. Keep at least one active model.
 
@@ -39,6 +39,27 @@ Run Compose commands from this directory. After changing model configuration, ru
 Azure uses the [v1 API](https://learn.microsoft.com/en-us/azure/foundry/openai/api-version-lifecycle?tabs=python#api-version-changelog). LiteLLM's `api_version: v1` selects `/openai/v1/` without a dated query parameter; LiteLLM adds this path to the resource root.
 
 Keep Azure `model_info.id` values stable and unique for [database reconciliation](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/proxy/proxy_server.py). If a deployment name differs from its underlying model, set `model_info.base_model` for pricing. The optional Model Router entry has no fixed base model because its underlying model varies. See [LiteLLM Azure](https://docs.litellm.ai/docs/providers/azure) and [Microsoft Model Router](https://learn.microsoft.com/en-us/azure/foundry/openai/concepts/model-router).
+
+## Qwen load balancing
+
+Two deployments share the client model name `unsloth/Qwen3.8-27B-NVFP4`: `qwen-primary` (always on) and `qwen-secondary` (occasionally powered on). The secondary inherits the primary's capabilities, reasoning settings, and pricing through YAML merge keys and overrides only its endpoint, key, and ID. While both are healthy, `simple-shuffle` picks one at random per request, about 50/50.
+
+Every 30 seconds, LiteLLM probes only the Qwen group (`background_health_check_model_groups`), so Azure receives no background requests. Each probe is a short chat request (16 output tokens, 15-second timeout) using the deployment's defaults. With `enable_health_check_routing`, a deployment whose latest probe failed is skipped until a probe passes; powering the secondary on or off needs no restart. If every Qwen probe fails, routing ignores health state instead of rejecting requests.
+
+Failover is not instant. With `num_retries: 0`, requests routed to the secondary after it goes offline fail with HTTP 500 until the next probe excludes it, typically within 30 seconds plus the probe timeout. LiteLLM's default 5-second failure cooldown may shorten this window. A restored server rejoins after its next passing probe.
+
+Identify each deployment by ID in the local Admin UI:
+
+- **Health Checks:** lists `qwen-primary` and `qwen-secondary` separately. Stored status changes immediately; unchanged results are saved hourly.
+- **Logs:** filter by Model ID. Enable **Hide Health Checks**: each probe is logged under `litellm-internal-health-check`, about two rows per minute per deployment.
+- **Responses:** the `x-litellm-model-id` header names the serving deployment.
+
+```sh
+curl -fsS http://127.0.0.1:14000/health/latest \
+  -H "Authorization: Bearer $LITELLM_MASTER_KEY"
+```
+
+See [health checks](https://docs.litellm.ai/docs/proxy/health), [load balancing](https://docs.litellm.ai/docs/proxy/load_balancing), and the pinned [health loop](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/proxy/proxy_server.py) and [router filter](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/router.py). [tests/qwen_failover_test.py](./tests/qwen_failover_test.py) checks the split, failover, and recovery against local mock servers; results are in [docs/qwen-load-balancing-validation.md](./docs/qwen-load-balancing-validation.md).
 
 ## Admin access and security
 
@@ -103,10 +124,11 @@ Qwen supports image input through `image_url` content parts ([model card](https:
 
 **LiteLLM 1.106.2 limitation:** calculated zeros may be omitted from the non-streaming total-cost header and final streaming `usage.cost`. Qwen's nominal positive rates allow both fields to be reported on Chat and Responses APIs without custom callbacks. UI rounding and database persistence at this precision have not been verified. Treat a missing cost as unavailable, not as zero. See the pinned [header implementation](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/proxy/common_request_processing.py) and [stream builder](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/main.py).
 
-Postgres stores per-request tokens, USD spend, prompts, and responses in its named volume. Inspect request details in the local UI or query logs:
+Postgres stores per-request tokens, USD spend, prompts, and responses in its named volume. Inspect request details in the local UI or query today's logs (UTC dates are required; `model_id` is optional):
 
 ```sh
-curl -fsS 'http://127.0.0.1:14000/spend/logs/v2?page=1&page_size=10' \
+day="$(date -u +%F)"
+curl -fsS "http://127.0.0.1:14000/spend/logs/v2?start_date=$day&end_date=$day%2023:59:59&exclude_internal_health_checks=true&model_id=qwen-secondary&page=1&page_size=10" \
   -H "Authorization: Bearer $LITELLM_MASTER_KEY"
 docker compose logs -f litellm
 ```

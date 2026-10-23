@@ -12,6 +12,7 @@ fi
 # Read the selected file, not provider credentials inherited from the shell.
 unset SERVER_NAME CLOUDFLARE_TUNNEL_TOKEN OPENAI_API_KEY AZURE_API_KEY \
     AZURE_API_BASE AZURE_API_VERSION VLLM_API_BASE VLLM_API_KEY \
+    VLLM_API_BASE_SECONDARY VLLM_API_KEY_SECONDARY \
     LITELLM_MASTER_KEY LITELLM_SALT_KEY APP_API_KEY POSTGRES_PASSWORD \
     LITELLM_LOG LITELLM_BIND LITELLM_PORT
 if [ -f "$out_file" ]; then
@@ -58,6 +59,8 @@ if [ -n "$azure_api_key" ]; then
 fi
 vllm_api_base="${VLLM_API_BASE:-$(prompt VLLM_API_BASE https://llm.example.com/v1)}"
 vllm_api_key="${VLLM_API_KEY-$(prompt 'VLLM_API_KEY (optional; comment out Qwen in YAML if empty)' '')}"
+vllm_api_base_secondary="${VLLM_API_BASE_SECONDARY:-$(prompt VLLM_API_BASE_SECONDARY https://llm-secondary.example.com/v1)}"
+vllm_api_key_secondary="${VLLM_API_KEY_SECONDARY-$(prompt 'VLLM_API_KEY_SECONDARY (optional; comment out qwen-secondary in YAML if empty)' '')}"
 
 master_key="${LITELLM_MASTER_KEY:-sk-$(openssl rand -hex 32)}"
 salt_key="${LITELLM_SALT_KEY:-sk-$(openssl rand -hex 32)}"
@@ -103,6 +106,9 @@ AZURE_API_BASE=$azure_api_base
 AZURE_API_VERSION=${AZURE_API_VERSION:-v1}
 VLLM_API_BASE=$vllm_api_base
 VLLM_API_KEY=$vllm_api_key
+# Occasionally powered-on secondary; health checks route around it when offline.
+VLLM_API_BASE_SECONDARY=$vllm_api_base_secondary
+VLLM_API_KEY_SECONDARY=$vllm_api_key_secondary
 EOF
 
 if [ -f "$out_file" ]; then

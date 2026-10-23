@@ -30,7 +30,8 @@ trap 'rm -rf -- "$tmp_dir"' EXIT
 trap 'exit 1' HUP INT TERM
 # Keep the application key out of curl's command-line arguments and test output.
 printf 'Authorization: Bearer %s\n' "$APP_API_KEY" > "$tmp_dir/auth"
-for secret in "$APP_API_KEY" "${LITELLM_MASTER_KEY:-}" "${OPENAI_API_KEY:-}" "${AZURE_API_KEY:-}" "${VLLM_API_KEY:-}"; do
+for secret in "$APP_API_KEY" "${LITELLM_MASTER_KEY:-}" "${OPENAI_API_KEY:-}" "${AZURE_API_KEY:-}" "${VLLM_API_KEY:-}" \
+    "${VLLM_API_KEY_SECONDARY:-}"; do
     [ -z "$secret" ] || printf '%s\n' "$secret" >> "$tmp_dir/secrets"
 done
 
