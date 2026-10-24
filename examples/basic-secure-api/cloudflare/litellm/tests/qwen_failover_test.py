@@ -129,9 +129,12 @@ def check_qwen_metadata(base):
     if status != 200:
         fail(f"model info returned HTTP {status}")
     infos = {m["model_info"]["id"]: m["model_info"] for m in body["data"]}
+    params = {m["model_info"]["id"]: m["litellm_params"] for m in body["data"]}
     for model_id in ("qwen-primary", "qwen-secondary"):
         if model_id not in infos:
             fail(f"missing deployment metadata: {model_id}")
+        if params[model_id].get("max_parallel_requests") != 4:
+            fail(f"{model_id}: expected advertised max_parallel_requests=4")
         info = infos[model_id]
         for field in ("max_tokens", "max_input_tokens", "max_output_tokens"):
             if info.get(field) != 262144:

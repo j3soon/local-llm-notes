@@ -104,6 +104,9 @@ model_list:
       model: hosted_vllm/unsloth/Qwen3.8-27B-NVFP4
       api_base: os.environ/VLLM_API_BASE
       api_key: os.environ/VLLM_API_KEY
+      # Per-deployment, per-proxy-worker gateway cap; exposed in /v1/model/info.
+      # Kept at 4 alongside vLLM's --max-num-seqs 4; this also limits queued calls.
+      max_parallel_requests: 4
       chat_template_kwargs:
         enable_thinking: true
         reasoning_effort: xhigh
