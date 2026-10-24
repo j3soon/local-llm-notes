@@ -29,7 +29,8 @@ if [ "$APP_API_KEY" = "$LITELLM_MASTER_KEY" ]; then
 fi
 
 # Only the loopback management API is used; NGINX blocks this public route.
-response="$(jq -n '{key: env.APP_API_KEY, key_alias: "app", key_type: "llm_api"}' |
+# The llm_api key_type preset overwrites allowed_routes, so grant routes directly.
+response="$(jq -n '{key: env.APP_API_KEY, key_alias: "app", allowed_routes: ["llm_api_routes", "/health/latest"]}' |
     curl -fsS "http://127.0.0.1:${LITELLM_PORT:-14000}/key/generate" \
         -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
         -H 'Content-Type: application/json' \

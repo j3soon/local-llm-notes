@@ -97,7 +97,7 @@ check_http_denied
 check_tls
 
 for auth in missing invalid; do
-    for path in /v1/models /v1/model/info; do
+    for path in /v1/models /v1/model/info /health/latest; do
         request GET "$path" "$auth"
         [ "$code" = 401 ] || fail "$auth key on $path: expected 401, got $code"
     done
@@ -106,9 +106,9 @@ for auth in missing invalid; do
     request POST /v1/responses "$auth" -H 'Content-Type: application/json' -d "$responses"
     [ "$code" = 401 ] || fail "$auth key on responses: expected 401, got $code"
 done
-pass "model discovery, metadata, chat, and responses reject missing and invalid keys"
+pass "model discovery, metadata, health results, chat, and responses reject missing and invalid keys"
 
-for path in / /ui /ui/ /login /docs /openapi.json /model/info /v2/model/info /key/list /spend/logs/v2 /health/readiness /v1/embeddings; do
+for path in / /ui /ui/ /login /docs /openapi.json /model/info /v2/model/info /key/list /spend/logs/v2 /health /health/readiness /health/history /health/latest/ /v1/embeddings; do
     request GET "$path" valid
     [ "$code" = 403 ] || fail "$path must be blocked even with a valid key, got $code"
 done
@@ -119,7 +119,7 @@ for path in /key/generate /key/update; do
 done
 pass "public UI, docs, management, spend logs, and unapproved routes are blocked"
 
-for path in /v1/models /v1/model/info; do
+for path in /v1/models /v1/model/info /health/latest; do
     request POST "$path" valid -H 'Content-Type: application/json' -d '{}'
     [ "$code" = 403 ] || fail "POST $path must be blocked, got $code"
 done
@@ -140,6 +140,14 @@ request GET /v1/model/info valid
 jq -e --arg model "$model" 'any(.data[]; .model_name == $model and (.model_info | type == "object"))' "$tmp_dir/body" >/dev/null || \
     fail "selected model is absent from authenticated metadata: $model"
 pass "application key can read model metadata without exposed API keys"
+
+request GET /health/latest valid
+[ "$code" = 200 ] || fail "authenticated health results: expected 200, got $code (check the key's allowed_routes)"
+jq -e '(.latest_health_checks | type == "object") and
+    (.total_models | type == "number") and
+    .total_models == (.latest_health_checks | length)' "$tmp_dir/body" >/dev/null || \
+    fail "health results must contain saved checks and a matching model count"
+pass "application key can read saved health results"
 
 request POST /v1/chat/completions valid -H 'Content-Type: application/json' -d "$chat"
 [ "$code" = 200 ] || fail "authenticated inference: expected 200, got $code (check local proxy logs)"

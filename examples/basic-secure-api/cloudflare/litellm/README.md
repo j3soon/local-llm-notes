@@ -61,9 +61,11 @@ Identify each deployment by ID in the local Admin UI:
 - **Responses:** the `x-litellm-model-id` header names the serving deployment.
 
 ```sh
-curl -fsS http://127.0.0.1:14000/health/latest \
-  -H "Authorization: Bearer $LITELLM_MASTER_KEY"
+curl -fsS "https://$SERVER_NAME/health/latest" \
+  -H "Authorization: Bearer $APP_API_KEY"
 ```
+
+`GET /health/latest` reads saved background-check results without triggering inference. LiteLLM 1.106.2 returns proxy-wide records, including deployment IDs, timestamps, and error messages; results are not filtered by the key's model permissions. An empty `latest_health_checks` object means no results have been saved. Only Qwen is probed by this configuration, so absent models have no reported status. See the pinned [endpoint implementation](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/proxy/health_endpoints/_health_endpoints.py).
 
 See [health checks](https://docs.litellm.ai/docs/proxy/health), [load balancing](https://docs.litellm.ai/docs/proxy/load_balancing), and the pinned [health loop](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/proxy/proxy_server.py), [router filter](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/router.py), and [session affinity](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/router_utils/pre_call_checks/deployment_affinity_check.py). [tests/qwen_failover_test.py](./tests/qwen_failover_test.py) checks the split, session pinning, failover, and recovery against local mock servers. After deploying, `python3 tests/qwen_cache_affinity_test.py` confirms pinning and cache reuse through the public endpoint with small Qwen requests. Results are in [docs/qwen-load-balancing-validation.md](./docs/qwen-load-balancing-validation.md).
 
@@ -81,10 +83,22 @@ The public tunnel connects through dedicated NGINX rules. The UI, docs, and mana
 
 - `GET /v1/models`
 - `GET /v1/model/info`
+- `GET /health/latest`
 - `POST /v1/chat/completions`
 - `POST /v1/responses`
 
 LiteLLM authenticates bearer tokens, including virtual keys. Model metadata is filtered by permissions and removes sensitive connection fields. Provider credentials stay on the proxy. See the [UI guide](https://docs.litellm.ai/docs/proxy/ui) and [virtual-key documentation](https://docs.litellm.ai/docs/proxy/virtual_keys).
+
+The registration script grants `allowed_routes: ["llm_api_routes", "/health/latest"]` explicitly: the `llm_api` key-type preset would overwrite that list and exclude health results ([key implementation](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/proxy/management_endpoints/key_management_endpoints.py)). For an existing application key, load `.env` into the shell, update its routes through the local management API, and restart NGINX:
+
+```sh
+set -a; . ./.env; set +a
+jq -n '{key: env.APP_API_KEY, allowed_routes: ["llm_api_routes", "/health/latest"]}' |
+  curl -fsS "http://127.0.0.1:${LITELLM_PORT:-14000}/key/update" \
+    -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
+    -H 'Content-Type: application/json' --data-binary @- -o /dev/null
+docker compose restart nginx
+```
 
 ## Key limits
 
@@ -153,4 +167,4 @@ After registering the key, run:
 ./scripts/basic_security_scan.sh .env unsloth/Qwen3.8-27B-NVFP4
 ```
 
-Requires `curl`, `jq`, `openssl`, and `timeout`; loads `.env` automatically. It checks HTTPS/TLS, authentication, blocked routes/methods, model discovery/metadata, and two small Chat Completions requests with token usage and streaming cost. Provider charges may apply. Setting Qwen's rates to zero can cause the streaming-cost assertion to fail because of the LiteLLM limitation above. The scan does not verify database persistence, the host firewall, or successful Responses inference.
+Requires `curl`, `jq`, `openssl`, and `timeout`; loads `.env` automatically. It checks HTTPS/TLS, authentication, blocked routes/methods, model discovery/metadata, saved health results, and two small Chat Completions requests with token usage and streaming cost. Provider charges may apply. Setting Qwen's rates to zero can cause the streaming-cost assertion to fail because of the LiteLLM limitation above. The scan does not verify database persistence, the host firewall, or successful Responses inference.
