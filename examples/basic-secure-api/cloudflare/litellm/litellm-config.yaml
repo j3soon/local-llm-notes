@@ -145,9 +145,27 @@ model_list:
       input_cost_per_token: 5.0e-324
       output_cost_per_token: 5.0e-324
       cache_read_input_token_cost: 5.0e-324
+      # vLLM /v1/models exposes max_model_len only; LiteLLM discovers limits
+      # asynchronously and does not import capability flags. Keep shared metadata
+      # available before discovery and during upstream outages. See docs/qwen-metadata-validation.md.
+      # These are individual ceilings within ONE shared prompt + output budget,
+      # not additive allowances. No separate max_new_tokens cap is configured.
+      max_tokens: 262144
+      max_input_tokens: 262144
+      max_output_tokens: 262144
+      supported_endpoints:
+        - /v1/chat/completions
+        - /v1/responses
+      supports_system_messages: true
+      supports_parallel_function_calling: true
+      supports_tool_choice: true
+      supports_prompt_caching: true
+      supports_native_streaming: true
+      supports_response_schema: true
+      supports_native_structured_output: true
 
-  # Secondary: inherits the primary's settings via YAML merge keys and overrides
-  # only its endpoint, key, and ID. Comment out this block if it is not configured.
+  # Secondary runs the same model/configuration and shares all metadata.
+  # Override only its endpoint, key, and ID. Comment out if not configured.
   - model_name: unsloth/Qwen3.8-27B-NVFP4
     litellm_params:
       <<: *qwen_params

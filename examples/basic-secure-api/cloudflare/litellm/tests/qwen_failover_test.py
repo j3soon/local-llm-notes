@@ -123,6 +123,34 @@ def health(base):
             {e.get("model_id") for e in body["unhealthy_endpoints"]})
 
 
+def check_qwen_metadata(base):
+    # Mock /models returns no cards: limits must survive failed discovery.
+    status, _, body = call(base, "/v1/model/info")
+    if status != 200:
+        fail(f"model info returned HTTP {status}")
+    infos = {m["model_info"]["id"]: m["model_info"] for m in body["data"]}
+    for model_id in ("qwen-primary", "qwen-secondary"):
+        if model_id not in infos:
+            fail(f"missing deployment metadata: {model_id}")
+        info = infos[model_id]
+        for field in ("max_tokens", "max_input_tokens", "max_output_tokens"):
+            if info.get(field) != 262144:
+                fail(f"{model_id} {field}: expected 262144, got {info.get(field)}")
+        for field in ("supports_system_messages", "supports_parallel_function_calling", "supports_tool_choice",
+                      "supports_prompt_caching", "supports_native_streaming", "supports_response_schema",
+                      "supports_native_structured_output"):
+            if info.get(field) is not True:
+                fail(f"{model_id} {field}: expected true, got {info.get(field)}")
+        if set(info.get("supported_endpoints") or []) != {"/v1/chat/completions", "/v1/responses"}:
+            fail(f"unexpected {model_id} endpoints: {info.get('supported_endpoints')}")
+    status, _, body = call(base, "/v1/models")
+    if status != 200:
+        fail(f"models returned HTTP {status}")
+    model = next(m for m in body["data"] if m["id"] == MODEL)
+    if any(model.get(f) != info[f] for f in ("max_input_tokens", "max_output_tokens")):
+        fail("model list and deployment model info disagree on token limits")
+
+
 def wait_for(description, predicate, timeout):
     start = time.monotonic()
     while time.monotonic() - start < timeout:
@@ -176,6 +204,8 @@ def run(base, primary, secondary):
 
     wait_for("proxy startup", lambda: health(base) is not None, 120)
     wait_for("both deployments healthy", both_healthy, 60)
+    check_qwen_metadata(base)
+    passed("both deployments advertise shared limits and capabilities without upstream model discovery")
     _, headers, _ = call(base, "/v1/chat/completions", {"model": MODEL, "messages": [{"role": "user", "content": "hi"}]})
     if headers.get("x-litellm-version") != EXPECTED_VERSION:
         fail(f"expected LiteLLM {EXPECTED_VERSION}, got {headers.get('x-litellm-version')}")
@@ -200,6 +230,7 @@ def run(base, primary, secondary):
     passed(f"16 sessions x 6 requests each stayed on one deployment; {dict(Counter(pins.values()))}")
 
     secondary.stop()
+    check_qwen_metadata(base)
     elapsed = wait_for("secondary marked unhealthy", lambda: health(base) == ({"qwen-primary"}, {"qwen-secondary"}),
                        30 + 15 + 15)
     served = tally(base, 50)
@@ -221,6 +252,10 @@ def run(base, primary, secondary):
     if served != {"200:qwen-secondary": 6}:
         fail(f"session did not return to its restored deployment: {dict(served)}")
     passed("pinned session returned to the restored secondary")
+
+    primary.stop()
+    check_qwen_metadata(base)
+    passed("shared metadata remains available with either upstream offline")
 
 
 if __name__ == "__main__":

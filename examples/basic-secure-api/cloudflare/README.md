@@ -24,6 +24,8 @@ For Qwen3.8 NVFP4 with vLLM and MTP 2 (`LLAMA_CPP_IMAGE` is ignored):
 docker compose -f compose.vllm.yaml up -d
 ```
 
+vLLM explicitly sets `--max-model-len 262144`, the shared prompt-plus-output budget. Its authenticated `/v1/models` reports this as `max_model_len`. There is no separate output cap in this setup: requested output must fit in the space left by the prompt, including chat-template and image tokens. See [vLLM engine arguments](https://docs.vllm.ai/en/latest/configuration/engine_args/#--max-model-len).
+
 The vLLM configuration explicitly enables [automatic prefix caching](https://docs.vllm.ai/en/latest/features/automatic_prefix_caching/) to reuse KV cache for shared prompt prefixes. It also enables [prompt token details](https://docs.vllm.ai/en/latest/cli/serve/#--enable-prompt-tokens-details), reporting cached tokens in API responses under `usage.prompt_tokens_details.cached_tokens`. For streaming requests, set `"stream_options": {"include_usage": true}` to receive usage. Standard Prometheus metrics, including prefix-cache queries and hits, and periodic statistics logging are enabled by default; keep `--disable-log-stats` unset.
 
 Inspect metrics or statistics from the Docker host:

@@ -10,6 +10,7 @@ services:
     command: >-
       unsloth/Qwen3.8-27B-NVFP4
       --speculative-config '{"method":"mtp","num_speculative_tokens":2}'
+      --max-model-len 262144
       --max-num-seqs 4
       --enable-prefix-caching
       --enable-prompt-tokens-details
