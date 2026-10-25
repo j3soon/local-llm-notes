@@ -10,18 +10,22 @@ From `examples/basic-secure-api/cloudflare/litellm`:
 ./scripts/gen_env.sh
 ```
 
-This generates `.env` with provider settings and independent master, salt, application, and database secrets. **The application key must also be registered after startup**, as shown below. The script requires `openssl`, reuses existing template values, and asks before overwriting `.env`. It backs up the original with mode 600 and writes only settings from `.env.example`; extra variables are removed. Alternatively, copy `.env.example`, fill its values, and run `chmod 600 .env`.
+This generates `.env` with provider settings and independent master, salt, client, and database secrets. **Client keys must also be registered after startup**, as shown below. The script requires `openssl`, `jq`, and `awk`, reuses existing values, and asks before overwriting `.env`. [`.env.example`](./.env.example) is the source for comments, spacing, and variable order; the script replaces its values. It backs up the original with mode 600 and writes only template settings; extra variables are removed. Alternatively, copy `.env.example`, fill its values, and run `chmod 600 .env`.
+
+Every run asks `Append a new client key? [y/N]`. Answer yes to generate a token with a unique `key_alias`, then enter a native `models` JSON array or press Enter for the YAML default (Qwen). Use `["all-proxy-models"]` for full access. The prompt repeats so you can append several keys; existing entries and tokens are preserved. Confirm the final overwrite to save, then run `./scripts/create_virtual_key.sh` to register the new keys. To use a different environment file, pass its path to both scripts.
+
+`APP_API_KEYS` must contain valid JSON: separate entries with commas, but omit the comma after the final entry. The generator writes one key object per line and leaves the file unchanged if the JSON is invalid.
 
 Configure providers in `.env` and [litellm-config.yaml](./litellm-config.yaml):
 
 - **Azure:** enabled by default for `azure/gpt-6.1-sol` and `azure/gpt-6-luna`. Set `AZURE_API_KEY`, `AZURE_API_BASE` to the resource root without a trailing slash, and `AZURE_API_VERSION=v1`. Azure deployment names must match `litellm_params.model`.
 - **Qwen:** set `VLLM_API_BASE` to the always-on upstream HTTPS endpoint, such as `https://llm.example.com/v1`, and `VLLM_API_KEY` to its `LLM_API_KEY`. Set `VLLM_API_BASE_SECONDARY` and `VLLM_API_KEY_SECONDARY` the same way for the occasionally powered-on server, or comment out its `qwen-secondary` block. Keep the `hosted_vllm/` provider prefix in `litellm_params.model`; clients use the full served name `unsloth/Qwen3.8-27B-NVFP4`.
-- **Direct OpenAI:** uncomment its model entries and key permissions, then set `OPENAI_API_KEY`.
+- **Direct OpenAI:** uncomment its model entries, then set `OPENAI_API_KEY`.
 - **Unused providers:** comment out their complete model entries and their names in `default_key_generate_params.models`. Empty API keys do not reliably disable models. Keep at least one active model.
 
 Create a separate [Cloudflare Tunnel](https://developers.cloudflare.com/tunnel/setup/), set `CLOUDFLARE_TUNNEL_TOKEN` and `SERVER_NAME`, and point its public hostname to `http://nginx:80`. Enable [Always Use HTTPS](https://developers.cloudflare.com/ssl/edge-certificates/additional-options/always-use-https/) and set [Minimum TLS Version](https://developers.cloudflare.com/ssl/edge-certificates/additional-options/minimum-tls-version/) to **TLS 1.2**. The vLLM upstream uses its own tunnel; no shared Docker network is required.
 
-Start and register the inference key:
+Start and register the client keys:
 
 ```sh
 docker compose config --quiet
@@ -30,7 +34,26 @@ docker compose up -d --wait
 docker compose ps
 ```
 
-Registration requires `curl`, `jq`, and local access. Declaring `APP_API_KEY` in `.env` alone does not create a virtual key in Postgres or the Admin UI. Keep the master key for administration.
+Registration requires `python3`, `PyYAML` (`python3 -m pip install PyYAML`), and local access. Declaring `APP_API_KEYS` alone does not create Virtual Keys in Postgres or the Admin UI. Keep the master key for administration.
+
+`APP_API_KEYS` is a JSON array of native `/key/generate` request objects:
+
+```dotenv
+APP_API_KEYS='[
+  {"key_alias":"full-access","key":"sk-...full...","models":["all-proxy-models"]},
+  {"key_alias":"qwen-only","key":"sk-...qwen..."}
+]'
+```
+
+Use distinct tokens. Omitted `models` or `[]` uses `default_key_generate_params.models` in YAML, which allows only Qwen. An explicit list uses client-facing model names; `["all-proxy-models"]` allows all current and future proxy models. Other native arguments, such as `max_budget`, `rpm_limit`, or `metadata`, pass through on creation.
+
+The script supplies `allowed_routes: ["llm_api_routes", "/health/latest"]` unless overridden. Avoid `key_type: "llm_api"`: LiteLLM replaces that route list and excludes health results. See the pinned [request schema](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/proxy/_types.py) and [generation defaults](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/proxy/management_endpoints/key_management_endpoints.py).
+
+Rerunning registration skips matching model permissions. If an existing token has different permissions, it shows current and desired rules and asks `Update model access? [y/N]`. Confirmation updates only `models`; other settings and spend history stay intact. Without an interactive terminal, the update is skipped and reported.
+
+Model order is ignored, and unrestricted rules (`[]`, `["*"]`, `["all-proxy-models"]` in stored keys) compare equally. Changing the YAML default also affects the desired permissions for entries omitting `models` or using `[]`; restart LiteLLM before registering against changed YAML. Removing an entry does not revoke its key; use the local Admin UI to revoke it.
+
+Run the local registration tests with `python3 tests/virtual_keys_test.py` (requires PyYAML; no live gateway needed).
 
 Run Compose commands from this directory. After changing model configuration, run `docker compose restart litellm`; after changing environment variables or mounts, run `docker compose up -d` and `docker compose restart nginx`. After changing NGINX configuration, restart `nginx`.
 
@@ -52,7 +75,7 @@ Every 30 seconds, LiteLLM probes only the Qwen group (`background_health_check_m
 
 Failover is not instant. With `num_retries: 0`, requests routed to the secondary after it goes offline fail with HTTP 500 until the next probe excludes it, typically within 30 seconds plus the probe timeout. LiteLLM's default 5-second failure cooldown may shorten this window. A restored server rejoins after its next passing probe.
 
-**Session affinity** keeps a conversation on one server so vLLM reuses its prefix cache instead of filling both caches. With `session_affinity`, requests carrying a session ID are pinned to the deployment that served the session first, for one hour (`deployment_affinity_ttl_seconds`); new sessions still split about 50/50. Send `x-session-id`, `x-litellm-session-id`, or a vendor header such as `x-claude-code-session-id`, or put `session_id` in the request `metadata`; the body field `litellm_session_id` is not used. Requests without a session ID stay random. A pin to an unhealthy server falls back to a healthy one and returns once its server recovers. Pins live in LiteLLM's memory and reset on restart. `usage.prompt_tokens_details.cached_tokens` reports reuse. In live 8-turn tests, conversations sticking to one server reused 61% of prompt tokens on later turns, compared with 48% under random routing. Do not enable `deployment_affinity`: it pins by API key, and all clients share one key.
+**Session affinity** keeps a conversation on one server so vLLM reuses its prefix cache instead of filling both caches. With `session_affinity`, requests carrying a session ID are pinned to the deployment that served the session first, for one hour (`deployment_affinity_ttl_seconds`); new sessions still split about 50/50. Send `x-session-id`, `x-litellm-session-id`, or a vendor header such as `x-claude-code-session-id`, or put `session_id` in the request `metadata`; the body field `litellm_session_id` is not used. Requests without a session ID stay random. A pin to an unhealthy server falls back to a healthy one and returns once its server recovers. Pins live in LiteLLM's memory and reset on restart. `usage.prompt_tokens_details.cached_tokens` reports reuse. In live 8-turn tests, conversations sticking to one server reused 61% of prompt tokens on later turns, compared with 48% under random routing. Do not enable `deployment_affinity`: it pins all clients sharing an API key to one deployment.
 
 Identify each deployment by ID in the local Admin UI:
 
@@ -61,8 +84,10 @@ Identify each deployment by ID in the local Admin UI:
 - **Responses:** the `x-litellm-model-id` header names the serving deployment.
 
 ```sh
+. ./.env
+CLIENT_API_KEY="$(printf '%s' "$APP_API_KEYS" | jq -er '.[] | select(.key_alias == "qwen-only") | .key')"
 curl -fsS "https://$SERVER_NAME/health/latest" \
-  -H "Authorization: Bearer $APP_API_KEY"
+  -H "Authorization: Bearer $CLIENT_API_KEY"
 ```
 
 `GET /health/latest` reads saved background-check results without triggering inference. LiteLLM 1.106.2 returns proxy-wide records, including deployment IDs, timestamps, and error messages; results are not filtered by the key's model permissions. An empty `latest_health_checks` object means no results have been saved. Only Qwen is probed by this configuration, so absent models have no reported status. See the pinned [endpoint implementation](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/proxy/health_endpoints/_health_endpoints.py).
@@ -89,36 +114,26 @@ The public tunnel connects through dedicated NGINX rules. The UI, docs, and mana
 
 LiteLLM authenticates bearer tokens, including virtual keys. Model metadata is filtered by permissions and removes sensitive connection fields. Provider credentials stay on the proxy. See the [UI guide](https://docs.litellm.ai/docs/proxy/ui) and [virtual-key documentation](https://docs.litellm.ai/docs/proxy/virtual_keys).
 
-The registration script grants `allowed_routes: ["llm_api_routes", "/health/latest"]` explicitly: the `llm_api` key-type preset would overwrite that list and exclude health results ([key implementation](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/proxy/management_endpoints/key_management_endpoints.py)). For an existing application key, load `.env` into the shell, update its routes through the local management API, and restart NGINX:
-
-```sh
-set -a; . ./.env; set +a
-jq -n '{key: env.APP_API_KEY, allowed_routes: ["llm_api_routes", "/health/latest"]}' |
-  curl -fsS "http://127.0.0.1:${LITELLM_PORT:-14000}/key/update" \
-    -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
-    -H 'Content-Type: application/json' --data-binary @- -o /dev/null
-docker compose restart nginx
-```
-
 ## Key limits
 
-`default_key_generate_params` sets the `app` key's model permissions, **$20 per 30 days**, and **60 requests per minute**. Four users sharing this key share those limits. Each additional key receives its own budget and rate limit. Qwen's nominal cost is negligible relative to the dollar budget.
+`default_key_generate_params` sets Qwen-only model permissions, **$20 per 30 days**, and **60 requests per minute**. Clients sharing a key share those limits. Each additional key receives its own budget and rate limit. Qwen's nominal cost is negligible relative to the dollar budget.
 
 Each model API call counts toward RPM; an agent run can make several calls. Streaming chunks do not count separately. RPM limits frequency; `max_parallel_requests` separately limits simultaneous requests ([rate limits](https://docs.litellm.ai/docs/proxy/users)).
 
-Defaults are copied when the key is registered. Change an existing key through the local Admin UI or `/key/update`; rerunning the registration script does not overwrite it.
+Defaults are copied when a key is registered. Registration prompts before updating existing model permissions. Change other existing settings through the local Admin UI or `/key/update`.
 
 ## Requests and reasoning
 
-Clients use `https://$SERVER_NAME/v1` with `APP_API_KEY`:
+Clients use `https://$SERVER_NAME/v1` with a registered token. Select the full-access example key to call Azure:
 
 ```sh
 . ./.env
+CLIENT_API_KEY="$(printf '%s' "$APP_API_KEYS" | jq -er '.[] | select(.key_alias == "full-access") | .key')"
 curl -fsS "https://$SERVER_NAME/v1/models" \
-  -H "Authorization: Bearer $APP_API_KEY"
+  -H "Authorization: Bearer $CLIENT_API_KEY"
 
 curl -fsS "https://$SERVER_NAME/v1/chat/completions" \
-  -H "Authorization: Bearer $APP_API_KEY" \
+  -H "Authorization: Bearer $CLIENT_API_KEY" \
   -H 'Content-Type: application/json' \
   -d '{"model":"azure/gpt-6-luna","messages":[{"role":"user","content":"What is 17 times 23?"}],"reasoning_effort":"low"}'
 ```
@@ -159,12 +174,12 @@ docker compose logs -f litellm
 
 ## Security scan
 
-After registering the key, run:
+After registering the keys, run:
 
 ```sh
 ./scripts/basic_security_scan.sh
-# Optional environment file and model:
-./scripts/basic_security_scan.sh .env unsloth/Qwen3.8-27B-NVFP4
+# Optional environment file, model, and key alias:
+./scripts/basic_security_scan.sh .env azure/gpt-6-luna full-access
 ```
 
-Requires `curl`, `jq`, `openssl`, and `timeout`; loads `.env` automatically. It checks HTTPS/TLS, authentication, blocked routes/methods, model discovery/metadata, saved health results, and two small Chat Completions requests with token usage and streaming cost. Provider charges may apply. Setting Qwen's rates to zero can cause the streaming-cost assertion to fail because of the LiteLLM limitation above. The scan does not verify database persistence, the host firewall, or successful Responses inference.
+Requires `curl`, `jq`, `openssl`, `timeout`, and `python3`; loads `.env` automatically and defaults to Qwen with the `qwen-only` key. The cache affinity test accepts `[env-file] [key-alias]` with the same default alias. It checks HTTPS/TLS, authentication, blocked routes/methods, model discovery/metadata, saved health results, and two small Chat Completions requests with token usage and streaming cost. Provider charges may apply. Setting Qwen's rates to zero can cause the streaming-cost assertion to fail because of the LiteLLM limitation above. The scan does not verify database persistence, the host firewall, or successful Responses inference.

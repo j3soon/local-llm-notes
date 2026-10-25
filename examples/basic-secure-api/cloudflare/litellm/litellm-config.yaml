@@ -187,13 +187,9 @@ litellm_settings:
   # Reject unsupported parameters instead of silently removing them.
   drop_params: false
   # Defaults applied when a virtual key is created through the local API/UI.
+  # An omitted models field or [] uses this list; explicit models override it.
   default_key_generate_params:
     models:
-      # - gpt-6.1-sol
-      # - gpt-6-luna
-      - azure/gpt-6.1-sol
-      - azure/gpt-6-luna
-      # - azure/model-router
       - unsloth/Qwen3.8-27B-NVFP4
     max_budget: 20
     budget_duration: 30d

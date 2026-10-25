@@ -5,32 +5,36 @@ umask 077
 # Same PASS/FAIL convention as ../../../scripts/basic_security_scan.sh.
 # Run from the LiteLLM directory; two small inference requests may incur charges.
 env_file="${1:-.env}"
-model="${2:-azure/gpt-6-luna}"
+model="${2:-unsloth/Qwen3.8-27B-NVFP4}"
+key_alias="${3:-qwen-only}"
 case "$env_file" in
     /*) ;;
     *) env_file="./$env_file" ;;
 esac
+set -a
 . "$env_file"
+set +a
 : "${SERVER_NAME:?Set SERVER_NAME in the environment file}"
-: "${APP_API_KEY:?Set and register APP_API_KEY first}"
 
 pass() { printf 'PASS: %s\n' "$1"; }
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
 
-for dependency in curl jq openssl timeout; do
+for dependency in curl jq openssl timeout python3; do
     command -v "$dependency" >/dev/null 2>&1 || fail "$dependency is required"
 done
 case "$SERVER_NAME" in
     *[!a-zA-Z0-9.-]*|'') fail "SERVER_NAME must be a hostname without a scheme, port, or path" ;;
 esac
-[ "$APP_API_KEY" != "${LITELLM_MASTER_KEY:-}" ] || fail "use an application key, not the master key"
+script_dir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+client_api_key="$(python3 "$script_dir/virtual_keys.py" select "$key_alias")" || exit 1
 
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf -- "$tmp_dir"' EXIT
 trap 'exit 1' HUP INT TERM
 # Keep the application key out of curl's command-line arguments and test output.
-printf 'Authorization: Bearer %s\n' "$APP_API_KEY" > "$tmp_dir/auth"
-for secret in "$APP_API_KEY" "${LITELLM_MASTER_KEY:-}" "${OPENAI_API_KEY:-}" "${AZURE_API_KEY:-}" "${VLLM_API_KEY:-}" \
+printf 'Authorization: Bearer %s\n' "$client_api_key" > "$tmp_dir/auth"
+printf '%s' "$APP_API_KEYS" | jq -r '.[].key' > "$tmp_dir/secrets"
+for secret in "${LITELLM_MASTER_KEY:-}" "${OPENAI_API_KEY:-}" "${AZURE_API_KEY:-}" "${VLLM_API_KEY:-}" \
     "${VLLM_API_KEY_SECONDARY:-}"; do
     [ -z "$secret" ] || printf '%s\n' "$secret" >> "$tmp_dir/secrets"
 done

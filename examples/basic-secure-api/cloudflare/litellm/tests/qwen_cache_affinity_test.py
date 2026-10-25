@@ -1,22 +1,27 @@
 #!/usr/bin/env python3
 """Confirm Qwen session affinity and vLLM prefix-cache reuse through the public proxy.
 
-    python3 tests/qwen_cache_affinity_test.py [env-file]
+    python3 tests/qwen_cache_affinity_test.py [env-file] [key-alias]
 
-Loads SERVER_NAME and APP_API_KEY from .env and sends small Qwen requests with
-thinking disabled: short requests in several sessions, then two multi-turn
-conversations (about 5k-10k prompt tokens per turn), with and without a session
+Loads SERVER_NAME and APP_API_KEYS from .env, selects qwen-only by default,
+and sends small Qwen requests with thinking disabled: short requests in several
+sessions, then two multi-turn conversations (about 5k-10k prompt tokens per turn), with and without a session
 ID. Only the session-ID cases are asserted; the conversation without one shows
 the random-routing baseline. If the secondary is offline, every session stays on
 the primary and the test still passes.
 """
 import json
+import os
+import subprocess
 import sys
 import urllib.error
 import urllib.request
 import uuid
 from collections import Counter
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+from virtual_keys import load_keys, select_key
 
 MODEL = "unsloth/Qwen3.8-27B-NVFP4"
 TURNS = 6
@@ -32,19 +37,27 @@ def fail(message):
 
 
 def load_env(path):
-    values = {}
-    for line in Path(path).read_text().splitlines():
-        if "=" in line and not line.lstrip().startswith("#"):
-            key, value = line.split("=", 1)
-            values[key.strip()] = value.strip()
-    return values
+    # Match the registration script's .env handling, including multiline JSON.
+    result = subprocess.run(
+        ["sh", "-ec", 'set -a; . "$1"; exec "$2" -c '
+         "'import json, os; print(json.dumps(dict(os.environ)))'",
+         "load-env", str(Path(path).resolve()), sys.executable],
+        check=True, capture_output=True, text=True,
+    )
+    return json.loads(result.stdout)
 
 
 env_file = sys.argv[1] if len(sys.argv) > 1 else ".env"
+key_alias = sys.argv[2] if len(sys.argv) > 2 else "qwen-only"
 env = load_env(env_file)
-server_name, app_key = env.get("SERVER_NAME"), env.get("APP_API_KEY")
-if not server_name or not app_key:
-    fail(f"set SERVER_NAME and APP_API_KEY in {env_file}")
+os.environ.update(env)
+server_name = env.get("SERVER_NAME")
+if not server_name:
+    fail(f"set SERVER_NAME in {env_file}")
+try:
+    app_key = select_key(load_keys(), key_alias)
+except ValueError as error:
+    fail(str(error))
 
 
 def chat(messages, session=None):
