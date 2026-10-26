@@ -10,6 +10,7 @@ Runs the real litellm-config.yaml with LiteLLM 1.106.2 and no database:
 Local mock servers stand in for both vLLM servers and Azure; no provider is
 called. Takes about two minutes because recovery waits for 30-second probes.
 """
+from concurrent.futures import ThreadPoolExecutor
 import json
 import os
 import secrets
@@ -31,6 +32,9 @@ MODEL = "unsloth/Qwen3.8-27B-NVFP4"
 EXPECTED_VERSION = "1.106.2"
 MASTER_KEY = f"sk-{secrets.token_hex(16)}"
 requests_seen = []  # (server, path, authorization, body)
+held_request_started = threading.Event()
+release_held_request = threading.Event()
+held_backend = None
 
 
 def passed(message):
@@ -68,6 +72,11 @@ class Upstream:
             def do_POST(self):
                 body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
                 requests_seen.append((name, self.path, self.headers.get("Authorization"), body))
+                if body.get("messages", [{}])[-1].get("content") == "hold-for-routing-test":
+                    global held_backend
+                    held_backend = f"qwen-{name}"
+                    held_request_started.set()
+                    release_held_request.wait(timeout=20)
                 # Unique IDs: LiteLLM uses the response ID as the spend-log key.
                 self._send({"id": f"chatcmpl-{uuid.uuid4().hex}", "object": "chat.completion", "created": 1,
                             "model": body.get("model"),
@@ -113,6 +122,30 @@ def tally(base, count, session=None):
                                   {"x-session-id": session} if session else None)
         served[f"{status}:{headers.get('x-litellm-model-id')}"] += 1
     return served
+
+
+def check_least_busy(base, hold_session=None):
+    """Hold one deployment busy, then verify a new session selects the other."""
+    held_request_started.clear()
+    release_held_request.clear()
+    session = str(uuid.uuid4())
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(call, base, "/v1/chat/completions",
+                             {"model": MODEL, "messages": [{"role": "user", "content": "hold-for-routing-test"}]},
+                             {"x-session-id": hold_session} if hold_session else None)
+        try:
+            if not held_request_started.wait(timeout=10):
+                fail("held request did not reach an upstream")
+            expected = "qwen-secondary" if held_backend == "qwen-primary" else "qwen-primary"
+            served = tally(base, 1, session)
+            if served != {f"200:{expected}": 1}:
+                fail(f"least-busy did not avoid {held_backend}: {dict(served)}")
+        finally:
+            release_held_request.set()
+        if future.result()[0] != 200:
+            fail("held request failed")
+    passed(f"least-busy avoided {held_backend} and routed a new session to {expected}")
+    return session, expected
 
 
 def health(base):
@@ -214,11 +247,13 @@ def run(base, primary, secondary):
         fail(f"expected LiteLLM {EXPECTED_VERSION}, got {headers.get('x-litellm-version')}")
     passed(f"LiteLLM {EXPECTED_VERSION} reports both deployments healthy by ID")
 
-    served = tally(base, 200)
-    share = served["200:qwen-secondary"] / 200
-    if set(served) != {"200:qwen-primary", "200:qwen-secondary"} or not 0.35 <= share <= 0.65:
-        fail(f"expected about 50/50 across healthy deployments, got {dict(served)}")
-    passed(f"healthy split {dict(served)}")
+    pinned_session, pinned_backend = check_least_busy(base)
+    # Force a session onto the secondary even if idle ties favor the primary.
+    if pinned_backend != "qwen-secondary":
+        pinned_session, pinned_backend = check_least_busy(base, pinned_session)
+    if pinned_backend != "qwen-secondary":
+        fail("could not establish a session on the secondary")
+    secondary_session = pinned_session
 
     pins = {}
     for _ in range(16):
@@ -227,9 +262,6 @@ def run(base, primary, secondary):
         if len(served) != 1 or not next(iter(served)).startswith("200:"):
             fail(f"session {session} was not pinned to one deployment: {dict(served)}")
         pins[session] = next(iter(served)).removeprefix("200:")
-    if set(pins.values()) != {"qwen-primary", "qwen-secondary"}:
-        fail(f"new sessions did not spread across deployments: {Counter(pins.values())}")
-    secondary_session = next(s for s, model_id in pins.items() if model_id == "qwen-secondary")
     passed(f"16 sessions x 6 requests each stayed on one deployment; {dict(Counter(pins.values()))}")
 
     secondary.stop()
@@ -247,10 +279,8 @@ def run(base, primary, secondary):
 
     secondary.start()
     elapsed = wait_for("secondary restored", both_healthy, 30 + 15 + 15)
-    served = tally(base, 100)
-    if set(served) != {"200:qwen-primary", "200:qwen-secondary"}:
-        fail(f"restored secondary receives no traffic: {dict(served)}")
-    passed(f"secondary restored {elapsed:.0f}s after restart; {dict(served)}")
+    check_least_busy(base)
+    passed(f"secondary restored {elapsed:.0f}s after restart")
     served = tally(base, 6, secondary_session)
     if served != {"200:qwen-secondary": 6}:
         fail(f"session did not return to its restored deployment: {dict(served)}")

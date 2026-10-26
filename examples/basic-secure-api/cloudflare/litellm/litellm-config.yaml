@@ -96,9 +96,9 @@ model_list:
   #     api_version: os.environ/AZURE_API_VERSION
 
   # Two vLLM servers share this model group: the always-on primary below and an
-  # occasionally powered-on secondary. Simple-shuffle splits traffic about 50/50
-  # while both pass background health checks. Explicit IDs identify each server
-  # in health checks, logs, and the x-litellm-model-id response header.
+  # occasionally powered-on secondary. Least-busy prefers the healthy deployment
+  # with the fewest requests in flight through this proxy. Explicit IDs identify
+  # each server in health checks, logs, and the x-litellm-model-id response header.
   - model_name: unsloth/Qwen3.8-27B-NVFP4
     litellm_params: &qwen_params
       model: hosted_vllm/unsloth/Qwen3.8-27B-NVFP4
@@ -198,11 +198,11 @@ litellm_settings:
 router_settings:
   # Avoid automatically repeating a billable request after an upstream failure.
   num_retries: 0
-  # Default strategy: random choice among healthy deployments in a model group.
-  routing_strategy: simple-shuffle
+  # Prefer the healthy deployment with the fewest proxy requests in flight.
+  routing_strategy: least-busy
   # Keep requests with a session ID (such as an x-session-id header) on one
   # deployment for an hour, reusing its vLLM prefix cache. Requests without one
-  # stay random; a pin to an unhealthy deployment falls back to a healthy one.
+  # use least-busy; a pin to an unhealthy deployment falls back to a healthy one.
   optional_pre_call_checks:
     - session_affinity
 
