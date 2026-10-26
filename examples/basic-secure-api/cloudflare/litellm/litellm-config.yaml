@@ -193,7 +193,7 @@ litellm_settings:
       - unsloth/Qwen3.8-27B-NVFP4
     max_budget: 20
     budget_duration: 30d
-    rpm_limit: 60
+    rpm_limit: 240
 
 router_settings:
   # Avoid automatically repeating a billable request after an upstream failure.

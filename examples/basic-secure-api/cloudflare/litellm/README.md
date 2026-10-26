@@ -116,7 +116,7 @@ LiteLLM authenticates bearer tokens, including virtual keys. Model metadata is f
 
 ## Key limits
 
-`default_key_generate_params` sets Qwen-only model permissions, **$20 per 30 days**, and **60 requests per minute**. Clients sharing a key share those limits. Each additional key receives its own budget and rate limit. Qwen's nominal cost is negligible relative to the dollar budget.
+`default_key_generate_params` sets Qwen-only model permissions, **$20 per 30 days**, and **240 requests per minute**. Clients sharing a key share those limits. Each additional key receives its own budget and rate limit. Qwen's nominal cost is negligible relative to the dollar budget.
 
 Each model API call counts toward RPM; an agent run can make several calls. Streaming chunks do not count separately. RPM limits frequency; `max_parallel_requests` separately limits simultaneous requests ([rate limits](https://docs.litellm.ai/docs/proxy/users)).
 
