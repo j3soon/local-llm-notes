@@ -13,7 +13,7 @@ name: local-llm-proxy
 
 services:
   litellm:
-    image: ghcr.io/berriai/litellm:v1.106.2
+    image: ghcr.io/berriai/litellm:v1.110.1
     restart: unless-stopped
     command: ["--config", "/app/config.yaml"]
     env_file:

@@ -22,7 +22,7 @@ model_list:
   - model_name: azure/gpt-6.1-sol
     litellm_params:
       model: azure/gpt-6.1-sol
-      reasoning_effort: low
+      reasoning_effort: medium
       api_key: os.environ/AZURE_API_KEY
       api_base: os.environ/AZURE_API_BASE
       api_version: os.environ/AZURE_API_VERSION
@@ -50,6 +50,38 @@ model_list:
           label: Max
           parameters:
             reasoning_effort: max
+
+  - model_name: azure/gpt-6.1-terra
+    litellm_params:
+      model: azure/gpt-6.1-terra
+      reasoning_effort: medium
+      api_key: os.environ/AZURE_API_KEY
+      api_base: os.environ/AZURE_API_BASE
+      api_version: os.environ/AZURE_API_VERSION
+    model_info:
+      id: azure-gpt-6-1-terra
+      base_model: azure/gpt-6.1-terra
+      # Azure rejects max. Azure accepts none, but LiteLLM's cost map marks it
+      # unsupported, so the proxy rejects it. model_info.reasoning_effort_levels
+      # would allow none but silently round other unsupported levels (max -> xhigh).
+      # https://github.com/BerriAI/litellm/blob/v1.110.1/litellm/litellm_core_utils/reasoning_effort_capability.py
+      chat_reasoning_options:
+        - id: low
+          label: Low
+          parameters:
+            reasoning_effort: low
+        - id: medium
+          label: Medium
+          parameters:
+            reasoning_effort: medium
+        - id: high
+          label: High
+          parameters:
+            reasoning_effort: high
+        - id: xhigh
+          label: XHigh
+          parameters:
+            reasoning_effort: xhigh
 
   - model_name: azure/gpt-6-luna
     litellm_params:
@@ -180,8 +212,8 @@ model_list:
 
 litellm_settings:
   json_logs: true
-  # Request usage.cost in streaming usage chunks; v1.106.2 may omit zero costs.
-  # https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/proxy/common_request_processing.py
+  # Request usage.cost in streaming usage chunks; v1.110.1 may omit zero costs.
+  # https://github.com/BerriAI/litellm/blob/v1.110.1/litellm/proxy/common_request_processing.py
   include_cost_in_streaming_usage: true
   turn_off_message_logging: false
   # Reject unsupported parameters instead of silently removing them.
@@ -211,13 +243,13 @@ general_settings:
   database_url: os.environ/DATABASE_URL
   disable_spend_logs: false
   store_prompts_in_spend_logs: true
-  # Leave always_include_stream_usage unset: v1.106.2 requests upstream usage
+  # Leave always_include_stream_usage unset: v1.110.1 requests upstream usage
   # for streamed chat, even if the client omits it, without changing non-streams.
 
   # Probe only the Qwen group every 30s; Azure is never probed in the background.
   # Health-check routing skips deployments whose latest probe failed and restores
   # them after a passing probe. If every Qwen deployment fails, none is skipped.
-  # https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/proxy/proxy_server.py
+  # https://github.com/BerriAI/litellm/blob/v1.110.1/litellm/proxy/proxy_server.py
   background_health_checks: true
   health_check_interval: 30
   background_health_check_model_groups:

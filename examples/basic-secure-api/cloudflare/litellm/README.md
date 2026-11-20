@@ -1,6 +1,6 @@
 # LiteLLM Proxy
 
-Standalone OpenAI-compatible gateway for Azure OpenAI, optional direct OpenAI, and self-hosted Qwen load-balanced across two vLLM servers. [Compose](./compose.yaml) follows the [official quickstart](https://raw.githubusercontent.com/BerriAI/litellm/main/docker/docker-compose.quickstart.yml), with LiteLLM 1.106.2, Postgres, NGINX, and Cloudflare Tunnel in the separate `local-llm-proxy` project. Keep [vLLM](../compose.vllm.yaml) running for Qwen; GPT requests work independently.
+Standalone OpenAI-compatible gateway for Azure OpenAI, optional direct OpenAI, and self-hosted Qwen load-balanced across two vLLM servers. [Compose](./compose.yaml) follows the [official quickstart](https://raw.githubusercontent.com/BerriAI/litellm/main/docker/docker-compose.quickstart.yml), with LiteLLM 1.110.1, Postgres, NGINX, and Cloudflare Tunnel in the separate `local-llm-proxy` project. Keep [vLLM](../compose.vllm.yaml) running for Qwen; GPT requests work independently.
 
 ## Setup
 
@@ -18,7 +18,7 @@ Every run asks `Append a new client key? [y/N]`. Answer yes to generate a token 
 
 Configure providers in `.env` and [litellm-config.yaml](./litellm-config.yaml):
 
-- **Azure:** enabled by default for `azure/gpt-6.1-sol` and `azure/gpt-6-luna`. Set `AZURE_API_KEY`, `AZURE_API_BASE` to the resource root without a trailing slash, and `AZURE_API_VERSION=v1`. Azure deployment names must match `litellm_params.model`.
+- **Azure:** enabled by default for `azure/gpt-6.1-sol`, `azure/gpt-6.1-terra`, and `azure/gpt-6-luna`. Set `AZURE_API_KEY`, `AZURE_API_BASE` to the resource root without a trailing slash, and `AZURE_API_VERSION=v1`. Azure deployment names must match `litellm_params.model`.
 - **Qwen:** set `VLLM_API_BASE` to the always-on upstream HTTPS endpoint, such as `https://llm.example.com/v1`, and `VLLM_API_KEY` to its `LLM_API_KEY`. Set `VLLM_API_BASE_SECONDARY` and `VLLM_API_KEY_SECONDARY` the same way for the occasionally powered-on server, or comment out its `qwen-secondary` block. Keep the `hosted_vllm/` provider prefix in `litellm_params.model`; clients use the full served name `unsloth/Qwen3.8-27B-NVFP4`.
 - **Direct OpenAI:** uncomment its model entries, then set `OPENAI_API_KEY`.
 - **Unused providers:** comment out their complete model entries and their names in `default_key_generate_params.models`. Empty API keys do not reliably disable models. Keep at least one active model.
@@ -47,7 +47,7 @@ APP_API_KEYS='[
 
 Use distinct tokens. Omitted `models` or `[]` uses `default_key_generate_params.models` in YAML, which allows only Qwen. An explicit list uses client-facing model names; `["all-proxy-models"]` allows all current and future proxy models. Other native arguments, such as `max_budget`, `rpm_limit`, or `metadata`, pass through on creation.
 
-The script supplies `allowed_routes: ["llm_api_routes", "/health/latest"]` unless overridden. Avoid `key_type: "llm_api"`: LiteLLM replaces that route list and excludes health results. See the pinned [request schema](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/proxy/_types.py) and [generation defaults](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/proxy/management_endpoints/key_management_endpoints.py).
+The script supplies `allowed_routes: ["llm_api_routes", "/health/latest"]` unless overridden. Avoid `key_type: "llm_api"`: LiteLLM replaces that route list and excludes health results. See the pinned [request schema](https://github.com/BerriAI/litellm/blob/v1.110.1/litellm/proxy/_types.py) and [generation defaults](https://github.com/BerriAI/litellm/blob/v1.110.1/litellm/proxy/management_endpoints/key_management_endpoints.py).
 
 Rerunning registration skips matching model permissions. If an existing token has different permissions, it shows current and desired rules and asks `Update model access? [y/N]`. Confirmation updates only `models`; other settings and spend history stay intact. Without an interactive terminal, the update is skipped and reported.
 
@@ -61,7 +61,7 @@ Run Compose commands from this directory. After changing model configuration, ru
 
 Azure uses the [v1 API](https://learn.microsoft.com/en-us/azure/foundry/openai/api-version-lifecycle?tabs=python#api-version-changelog). LiteLLM's `api_version: v1` selects `/openai/v1/` without a dated query parameter; LiteLLM adds this path to the resource root.
 
-Keep Azure `model_info.id` values stable and unique for [database reconciliation](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/proxy/proxy_server.py). If a deployment name differs from its underlying model, set `model_info.base_model` for pricing. The optional Model Router entry has no fixed base model because its underlying model varies. See [LiteLLM Azure](https://docs.litellm.ai/docs/providers/azure) and [Microsoft Model Router](https://learn.microsoft.com/en-us/azure/foundry/openai/concepts/model-router).
+Keep Azure `model_info.id` values stable and unique for [database reconciliation](https://github.com/BerriAI/litellm/blob/v1.110.1/litellm/proxy/proxy_server.py). If a deployment name differs from its underlying model, set `model_info.base_model` for pricing. The optional Model Router entry has no fixed base model because its underlying model varies. See [LiteLLM Azure](https://docs.litellm.ai/docs/providers/azure) and [Microsoft Model Router](https://learn.microsoft.com/en-us/azure/foundry/openai/concepts/model-router).
 
 ## Qwen load balancing
 
@@ -69,7 +69,7 @@ Two deployments share the client model name `unsloth/Qwen3.8-27B-NVFP4`: `qwen-p
 
 Each Qwen deployment sets `litellm_params.max_parallel_requests: 4`, a gateway concurrency cap per proxy worker. Clients can read the configured value in each deployment's `litellm_params` from `GET /v1/model/info` using their application key. This cap includes calls waiting on the upstream and is separate from vLLM's four-sequence scheduling limit; it does not report current occupancy. See [LiteLLM concurrency limits](https://docs.litellm.ai/docs/routing#max-parallel-requests-async).
 
-Both deployments advertise a 262,144-token context, input ceiling, and output ceiling through `/v1/model/info` and `/v1/models`. These ceilings share one prompt-plus-output budget; they cannot be added together. Keep them aligned with vLLM's `--max-model-len` and any `max_new_tokens` cap. Explicit shared metadata keeps discovery stable during upstream outages and advertises verified streaming, caching, tool choice, parallel tools, system messages, JSON schema, and supported endpoints. Stock vLLM lists only its combined context limit, and LiteLLM's [upstream discovery](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/llms/openai_like/model_info.py) imports token limits only. See [validation and references](./docs/qwen-metadata-validation.md).
+Both deployments advertise a 262,144-token context, input ceiling, and output ceiling through `/v1/model/info` and `/v1/models`. These ceilings share one prompt-plus-output budget; they cannot be added together. Keep them aligned with vLLM's `--max-model-len` and any `max_new_tokens` cap. Explicit shared metadata keeps discovery stable during upstream outages and advertises verified streaming, caching, tool choice, parallel tools, system messages, JSON schema, and supported endpoints. Stock vLLM lists only its combined context limit, and LiteLLM's [upstream discovery](https://github.com/BerriAI/litellm/blob/v1.110.1/litellm/llms/openai_like/model_info.py) imports token limits only. See [validation and references](./docs/qwen-metadata-validation.md).
 
 Every 30 seconds, LiteLLM probes only the Qwen group (`background_health_check_model_groups`), so Azure receives no background requests. Each probe is a short chat request (16 output tokens, 15-second timeout) using the deployment's defaults. With `enable_health_check_routing`, a deployment whose latest probe failed is skipped until a probe passes; powering the secondary on or off needs no restart. If every Qwen probe fails, routing ignores health state instead of rejecting requests.
 
@@ -90,9 +90,9 @@ curl -fsS "https://$SERVER_NAME/health/latest" \
   -H "Authorization: Bearer $CLIENT_API_KEY"
 ```
 
-`GET /health/latest` reads saved background-check results without triggering inference. LiteLLM 1.106.2 returns proxy-wide records, including deployment IDs, timestamps, and error messages; results are not filtered by the key's model permissions. An empty `latest_health_checks` object means no results have been saved. Only Qwen is probed by this configuration, so absent models have no reported status. See the pinned [endpoint implementation](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/proxy/health_endpoints/_health_endpoints.py).
+`GET /health/latest` reads saved background-check results without triggering inference. LiteLLM 1.110.1 returns proxy-wide records, including deployment IDs, timestamps, and error messages; results are not filtered by the key's model permissions. An empty `latest_health_checks` object means no results have been saved. Only Qwen is probed by this configuration, so absent models have no reported status. See the pinned [endpoint implementation](https://github.com/BerriAI/litellm/blob/v1.110.1/litellm/proxy/health_endpoints/_health_endpoints.py).
 
-See [health checks](https://docs.litellm.ai/docs/proxy/health), [load balancing](https://docs.litellm.ai/docs/proxy/load_balancing), and the pinned [health loop](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/proxy/proxy_server.py), [router filter](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/router.py), and [session affinity](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/router_utils/pre_call_checks/deployment_affinity_check.py). [tests/qwen_failover_test.py](./tests/qwen_failover_test.py) checks routing under load, session pinning, failover, and recovery against local mock servers. After deploying, `python3 tests/qwen_cache_affinity_test.py` confirms pinning and cache reuse through the public endpoint with small Qwen requests. Results are in [docs/qwen-load-balancing-validation.md](./docs/qwen-load-balancing-validation.md).
+See [health checks](https://docs.litellm.ai/docs/proxy/health), [load balancing](https://docs.litellm.ai/docs/proxy/load_balancing), and the pinned [health loop](https://github.com/BerriAI/litellm/blob/v1.110.1/litellm/proxy/proxy_server.py), [router filter](https://github.com/BerriAI/litellm/blob/v1.110.1/litellm/router.py), and [session affinity](https://github.com/BerriAI/litellm/blob/v1.110.1/litellm/router_utils/pre_call_checks/deployment_affinity_check.py). [tests/qwen_failover_test.py](./tests/qwen_failover_test.py) checks routing under load, session pinning, failover, and recovery against local mock servers. After deploying, `python3 tests/qwen_cache_affinity_test.py` confirms pinning and cache reuse through the public endpoint with small Qwen requests. Results are in [docs/qwen-load-balancing-validation.md](./docs/qwen-load-balancing-validation.md).
 
 ## Admin access and security
 
@@ -144,7 +144,8 @@ All configured models support streaming. Set `stream: true` and, for Chat Comple
 | --- | --- | --- |
 | Qwen | xhigh | none, low, medium, xhigh |
 | GPT Luna | low | none, low, medium, high, xhigh, max |
-| GPT Sol | low | low, medium, high, xhigh, max |
+| GPT Terra | medium | low, medium, high, xhigh |
+| GPT Sol | medium | low, medium, high, xhigh, max |
 
 GPT accepts `reasoning_effort`. Qwen uses `chat_template_kwargs`: `enable_thinking: false` disables reasoning; otherwise set `enable_thinking: true` and `reasoning_effort` to low, medium, or xhigh. In the Python SDK, pass these through `extra_body`. Clients may override deployment defaults. Metadata's `chat_reasoning_options` advertises parameters for clients; the upstream validates them. Qwen returns reasoning text in `reasoning_content`, while GPT may return reasoning token counts without text. See the [Qwen template](https://huggingface.co/unsloth/Qwen3.8-27B-NVFP4/blob/main/chat_template.jinja).
 
@@ -157,7 +158,7 @@ Qwen supports image input through `image_url` content parts ([model card](https:
 - **Pricing:** GPT uses LiteLLM's [cost map](https://docs.litellm.ai/docs/proxy/model_cost_map). Qwen uses nominal input/output/cache-read rates of `5.0e-324` USD per token to enable native cost reporting; edit these rates for internal chargeback ([custom pricing](https://docs.litellm.ai/docs/proxy/custom_pricing)). These rates do not measure GPU operating costs.
 - **Breakdown:** total is uncached input + cached input + output. Reasoning cost is already part of output and must not be added again. Use upstream token counts and final streaming usage; interrupted streams may lack a complete receipt. Keep `always_include_stream_usage` unset and do not place `stream_options` in model defaults.
 
-**LiteLLM 1.106.2 limitation:** calculated zeros may be omitted from the non-streaming total-cost header and final streaming `usage.cost`. Qwen's nominal positive rates allow both fields to be reported on Chat and Responses APIs without custom callbacks. UI rounding and database persistence at this precision have not been verified. Treat a missing cost as unavailable, not as zero. See the pinned [header implementation](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/proxy/common_request_processing.py) and [stream builder](https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/main.py).
+**LiteLLM 1.110.1 limitation:** calculated zeros may be omitted from the non-streaming total-cost header and final streaming `usage.cost`. Qwen's nominal positive rates allow both fields to be reported on Chat and Responses APIs without custom callbacks. UI rounding and database persistence at this precision have not been verified. Treat a missing cost as unavailable, not as zero. See the pinned [header implementation](https://github.com/BerriAI/litellm/blob/v1.110.1/litellm/proxy/common_request_processing.py) and [stream builder](https://github.com/BerriAI/litellm/blob/v1.110.1/litellm/main.py).
 
 Postgres stores per-request tokens, USD spend, prompts, and responses in its named volume. Inspect request details in the local UI or query today's logs (UTC dates are required; `model_id` is optional):
 

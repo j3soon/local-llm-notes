@@ -62,8 +62,8 @@ def default_models():
 
 
 def model_rules(models):
-    # These all grant unrestricted model access in LiteLLM 1.106.2.
-    # https://github.com/BerriAI/litellm/blob/v1.106.2/litellm/proxy/auth/auth_checks.py
+    # These all grant unrestricted model access in LiteLLM 1.110.1.
+    # https://github.com/BerriAI/litellm/blob/v1.110.1/litellm/proxy/auth/auth_checks.py
     if not models or "*" in models or "all-proxy-models" in models:
         return frozenset({"all-proxy-models"})
     return frozenset(models)

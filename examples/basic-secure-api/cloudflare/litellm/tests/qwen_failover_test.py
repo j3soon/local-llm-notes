@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Validate Qwen load balancing, session affinity, failover, and recovery against mock upstreams.
 
-Runs the real litellm-config.yaml with LiteLLM 1.106.2 and no database:
+Runs the real litellm-config.yaml with LiteLLM 1.110.1 and no database:
 
     python3 -m venv /tmp/litellm-venv
-    /tmp/litellm-venv/bin/pip install 'litellm[proxy]==1.106.2'
+    /tmp/litellm-venv/bin/pip install 'litellm[proxy]==1.110.1'
     PATH="/tmp/litellm-venv/bin:$PATH" python3 tests/qwen_failover_test.py
 
 Local mock servers stand in for both vLLM servers and Azure; no provider is
@@ -29,7 +29,7 @@ from pathlib import Path
 
 CONFIG = Path(__file__).resolve().parent.parent / "litellm-config.yaml"
 MODEL = "unsloth/Qwen3.8-27B-NVFP4"
-EXPECTED_VERSION = "1.106.2"
+EXPECTED_VERSION = "1.110.1"
 MASTER_KEY = f"sk-{secrets.token_hex(16)}"
 requests_seen = []  # (server, path, authorization, body)
 held_request_started = threading.Event()
